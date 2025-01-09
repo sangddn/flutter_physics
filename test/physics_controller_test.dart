@@ -111,14 +111,18 @@ void main() {
     controller.repeat(
       period: const Duration(milliseconds: 100),
       count: 2,
+      reverse: true,
+      min: 0.0,
+      max: 1.0,
     );
+
     expect(controller.isAnimating, isTrue);
-    await tester.pumpAndSettle();
+    await tester.pumpAndSettle(Duration(milliseconds: 150));
     expect(controller.value, closeTo(1.0, 0.01));
 
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(controller.value, closeTo(1.0, 0.01));
-    expect(controller.isAnimating, isFalse);
+    expect(controller.isAnimating, false);
   });
 
   test('dispose', () {

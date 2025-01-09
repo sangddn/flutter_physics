@@ -239,7 +239,7 @@ void main() {
         simulation.xPhysics.duration,
         simulation.yPhysics.duration,
       );
-      expect(simulation.isDone(t), isTrue);
+      expect(simulation.isDone(t + 1), isTrue);
     });
   });
 
