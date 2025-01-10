@@ -8,7 +8,7 @@ void main() {
 
   setUp(() {
     TestWidgetsFlutterBinding.ensureInitialized();
-    controller = PhysicsController.bounded(
+    controller = PhysicsController(
       vsync: const TestVSync(),
       duration: const Duration(milliseconds: 100),
     );
@@ -126,7 +126,7 @@ void main() {
   });
 
   test('dispose', () {
-    final localController = PhysicsController.bounded(
+    final localController = PhysicsController(
       vsync: const TestVSync(),
     );
     localController.dispose();

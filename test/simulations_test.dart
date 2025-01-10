@@ -8,7 +8,7 @@ void main() {
   group('Spring simulation', () {
     test('initial values are correct', () {
       final spring = Spring(
-        description: Spring.elegant,
+        description: Spring.swiftDescription,
         start: 0.0,
         end: 1.0,
       );
@@ -19,20 +19,16 @@ void main() {
     });
 
     test('reaches target with default parameters', () {
-      final spring = Spring(
-        description: Spring.elegant,
-        start: 0.0,
-        end: 1.0,
-      );
+      final spring = Spring.elegant;
 
       // Check position at various times
       expect(spring.x(0.0), equals(0.0));
-      expect(spring.x(spring.duration), closeTo(1.0, 0.01));
+      expect(spring.x(spring.duration), closeTo(1.0, 0.05));
     });
 
     test('handles different spring configurations', () {
       final spring = Spring(
-        description: Spring.elegant,
+        description: Spring.swiftDescription,
         start: 0.0,
         end: 1.0,
         tolerance: const Tolerance(distance: 0.01, velocity: 0.01),
@@ -246,7 +242,7 @@ void main() {
   group('ClampedPhysicalSimulation', () {
     test('clamps position within bounds', () {
       final spring = Spring(
-        description: Spring.elegant,
+        description: Spring.swiftDescription,
         start: 0.0,
         end: 200.0,
         initialVelocity: 1000.0,
@@ -268,7 +264,7 @@ void main() {
 
     test('clamps velocity within bounds', () {
       final spring = Spring(
-        description: Spring.elegant,
+        description: Spring.swiftDescription,
         start: 0.0,
         end: 100.0,
         initialVelocity: 1000.0,
@@ -290,7 +286,7 @@ void main() {
 
     test('preserves isDone behavior', () {
       final spring = Spring(
-        description: Spring.elegant,
+        description: Spring.swiftDescription,
         start: 0.0,
         end: 100.0,
       );

@@ -11,7 +11,6 @@ void main() {
     TestWidgetsFlutterBinding.ensureInitialized();
     controller = PhysicsController2D(
       vsync: const TestVSync(),
-      duration: const Duration(milliseconds: 100),
       lowerBound: Offset.zero,
     );
   });
@@ -37,7 +36,6 @@ void main() {
 
     controller.animateTo(
       target,
-      duration: const Duration(milliseconds: 100),
       physics: Simulation2D(
         Spring(
             description:
@@ -92,14 +90,13 @@ void main() {
       min: const Offset(0, 0),
       max: const Offset(10, 10),
       reverse: true,
-      period: const Duration(milliseconds: 100),
       count: 2,
     );
 
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.pump(const Duration(milliseconds: 100));
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    await tester.pumpAndSettle(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle(const Duration(milliseconds: 400));
 
     expect(forwardCount, greaterThan(0));
     expect(reverseCount, greaterThan(0));
@@ -109,7 +106,6 @@ void main() {
   test('stop ends animation', () async {
     controller.animateTo(
       const Offset(100, 100),
-      duration: const Duration(seconds: 1),
       physics: Simulation2D(
         Spring(
             description:
