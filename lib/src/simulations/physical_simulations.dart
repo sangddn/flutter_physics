@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/animation.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/physics.dart';
 
 part 'spring.dart';
@@ -77,4 +78,8 @@ abstract class PhysicalSimulation extends Simulation implements Curve {
         : initialVelocity;
     return effectiveVelocity;
   }
+
+  @override
+  String toString() =>
+      '${objectRuntimeType(this, 'PhysicalSimulation')}(start: $start, end: $end, initialVelocity: $initialVelocity, duration: $duration)';
 }

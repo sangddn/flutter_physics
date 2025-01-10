@@ -58,87 +58,128 @@ class Spring extends PhysicalSimulation {
           tolerance: tolerance,
         );
 
-  static final defaultElegant = Spring(
-    description: elegant,
-    start: double.negativeInfinity,
-    end: double.infinity,
-  );
+  Spring.withBounce({
+    Duration duration = const Duration(milliseconds: 500),
+    double bounce = 0.0,
+    double mass = 1.0,
+    super.start = 0.0,
+    super.end = 1.0,
+    super.initialVelocity = 0.0,
+    super.tolerance = Tolerance.defaultTolerance,
+  })  : assert(duration > Duration.zero),
+        assert(bounce >= -1.0 && bounce <= 1.0) {
+    this.duration = duration.inMilliseconds / Duration.millisecondsPerSecond;
+    description = SpringDescription(
+      mass: mass,
+      stiffness: math.pow(2 * math.pi / this.duration, 2).toDouble(),
+      damping: 4 * math.pi * (1 - bounce) / this.duration,
+    );
+    _spring = SpringSimulation(description, start, end, initialVelocity);
+  }
+
+  Spring.withDamping({
+    double dampingFraction = 0.9,
+    Duration duration = const Duration(milliseconds: 400),
+    double mass = 1.0,
+    super.start = 0.0,
+    super.end = 1.0,
+    super.initialVelocity = 0.0,
+    super.tolerance = Tolerance.defaultTolerance,
+  }) : assert(dampingFraction >= 0.0 && dampingFraction <= 2.0) {
+    this.duration = duration.inMilliseconds / Duration.millisecondsPerSecond;
+    description = SpringDescription(
+      mass: mass,
+      stiffness: math.pow(2 * math.pi / this.duration, 2).toDouble(),
+      damping: 4 * math.pi * dampingFraction / this.duration,
+    );
+    _spring = SpringSimulation(description, start, end, initialVelocity);
+  }
 
   /// A swift, snappy spring with minimal oscillation
-  static const swift = SpringDescription(
+  static final swift = Spring(description: swiftDescription);
+  static const swiftDescription = SpringDescription(
     mass: 0.3,
     stiffness: 280.0,
     damping: 18.0,
   );
 
   /// A smooth, elegant motion with slight bounce
-  static const elegant = SpringDescription(
-    mass: 1.2,
-    stiffness: 150.0,
-    damping: 19.0,
+  static final elegant = Spring.withDamping(
+    mass: 0.6,
+    dampingFraction: 0.86,
+    initialVelocity: -1.0,
+    duration: const Duration(milliseconds: 350),
   );
 
   /// A snappy, responsive spring
-  static const snap = SpringDescription(
+  static final snap = Spring(description: snapDescription);
+  static const snapDescription = SpringDescription(
     mass: 0.4,
     stiffness: 320.0,
     damping: 20.0,
   );
 
   /// A stern, business-like spring with minimal oscillation
-  static const stern = SpringDescription(
+  static final stern = Spring(description: sternDescription);
+  static const sternDescription = SpringDescription(
     mass: 1.2,
     stiffness: 550.0,
     damping: 30.0,
   );
 
   /// A floating, gentle motion
-  static const float = SpringDescription(
+  static final float = Spring(description: floatDescription);
+  static const floatDescription = SpringDescription(
     mass: 2.0,
     stiffness: 290.0,
     damping: 15.0,
   );
 
   /// A bouncy, buoyant spring with some weight
-  static const buoyant = SpringDescription(
+  static final buoyant = Spring(description: buoyantDescription);
+  static const buoyantDescription = SpringDescription(
     mass: 10.0,
     stiffness: 900.0,
     damping: 80.0,
   );
 
   /// A quick, energetic fling
-  static const fling = SpringDescription(
+  static final fling = Spring(description: flingDescription);
+  static const flingDescription = SpringDescription(
     mass: 4.0,
     stiffness: 800.0,
     damping: 80.0,
   );
 
   /// A slow, relaxed motion
-  static const slow = SpringDescription(
+  static final slow = Spring(description: slowDescription);
+  static const slowDescription = SpringDescription(
     mass: 0.2,
     stiffness: 26.7,
     damping: 4.1,
   );
 
   /// A playful bobbing motion
-  static const bob = SpringDescription(
+  static final bob = Spring(description: bobDescription);
+  static const bobDescription = SpringDescription(
     mass: 0.1,
     stiffness: 131.1,
     damping: 2.3,
   );
 
   /// An extremely bouncy, cartoonish spring
-  static const boingoingoing = SpringDescription(
+  static final boingoingoing = Spring(description: boingoingoingDescription);
+  static const boingoingoingDescription = SpringDescription(
     mass: 0.1,
     stiffness: 1000.0,
     damping: 1.5,
   );
 
-  final SpringDescription description;
-  final SpringSimulation _spring;
+  late final SpringDescription description;
+  late final SpringSimulation _spring;
 
   @override
-  final double duration;
+  late final double duration;
 
   @override
   double x(double time) => _spring.x(time);
@@ -262,8 +303,8 @@ double _solveSpringDoneTime({
   required double endPosition,
   required double velocity,
   required Tolerance tolerance,
-  double maxTime = 50.0,
-  int maxIterations = 300,
+  double maxTime = 60.0,
+  int maxIterations = 30,
 }) {
   // Create the simulation
   final simulation = SpringSimulation(
@@ -274,13 +315,7 @@ double _solveSpringDoneTime({
   );
 
   // This checks if the simulation is "within tolerance" at a given time t.
-  bool isDone(double t) {
-    final x = simulation.x(t);
-    final v = simulation.dx(t);
-    final distOk = (x - endPosition).abs() <= tolerance.distance;
-    final velOk = v.abs() <= tolerance.velocity;
-    return distOk && velOk;
-  }
+  bool isDone(double t) => simulation.isDone(t);
 
   // If it's already within tolerance at t=0, done.
   if (isDone(0.0)) {

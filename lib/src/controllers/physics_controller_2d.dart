@@ -23,8 +23,6 @@ class PhysicsController2D extends Animation<Offset>
   ///   By default, the animation is unbounded: from `(-∞, -∞)` to `(∞, ∞)`.
   PhysicsController2D({
     Offset? value,
-    this.duration,
-    this.reverseDuration,
     this.debugLabel,
     required TickerProvider vsync,
     this.animationBehavior = AnimationBehavior.normal,
@@ -35,8 +33,8 @@ class PhysicsController2D extends Animation<Offset>
     ),
     this.upperBound = const Offset(double.infinity, double.infinity),
   })  : _direction = _AnimationDirection.forward,
-        defaultPhysics = defaultPhysics ??
-            Simulation2D(Spring.defaultElegant, Spring.defaultElegant) {
+        defaultPhysics =
+            defaultPhysics ?? Simulation2D(Spring.elegant, Spring.elegant) {
     _ticker = vsync.createTicker(_tick);
     _internalSetValue(value ?? Offset.zero);
   }
@@ -44,14 +42,8 @@ class PhysicsController2D extends Animation<Offset>
   /// A label that is used in the [toString] output.
   final String? debugLabel;
 
-  /// The length of time this animation should last.
-  Duration? duration;
-
-  /// The length of time this animation should last when going in [reverse].
-  Duration? reverseDuration;
-
   /// The default physics simulation to use for this controller.
-  final Simulation2D defaultPhysics;
+  Simulation2D defaultPhysics;
 
   /// The behavior of the controller when [AccessibilityFeatures.disableAnimations]
   /// is true.
@@ -150,7 +142,6 @@ class PhysicsController2D extends Animation<Offset>
   /// If [target] is the same as [value], no animation occurs.
   TickerFuture animateTo(
     Offset target, {
-    Duration? duration,
     Simulation2D? physics,
   }) {
     final double scale = switch (animationBehavior) {
@@ -160,67 +151,32 @@ class PhysicsController2D extends Animation<Offset>
       AnimationBehavior.normal || AnimationBehavior.preserve => 1.0,
     };
 
-    assert(() {
-      if (this.duration == null && duration == null) {
-        throw FlutterError(
-          'PhysicsController2D.animateTo() called with no explicit duration and no default duration.\n'
-          'Either the "duration" argument to the animateTo() method should be provided, or the '
-          '"duration" property should be set, either in the constructor or later, before '
-          'calling the animateTo() function.',
-        );
-      }
-      return true;
-    }());
-
     _direction = _AnimationDirection.forward;
-    final Duration simulationDuration = duration ?? this.duration!;
 
     if (target == value) {
-      // no change
-      if (simulationDuration == Duration.zero) {
-        _status = AnimationStatus.completed;
-        _checkStatusChanged();
-        return TickerFuture.complete();
-      }
-    }
-
-    stop();
-    if (simulationDuration == Duration.zero) {
-      _internalSetValue(target);
-      notifyListeners();
       _status = AnimationStatus.completed;
       _checkStatusChanged();
       return TickerFuture.complete();
     }
+
+    stop();
 
     physics ??= defaultPhysics;
     return _startSimulations(
         physics.xPhysics.copyWith(
           start: _value.dx,
           end: target.dx,
-          duration: simulationDuration,
           scale: scale,
         ),
         physics.yPhysics.copyWith(
           start: _value.dy,
           end: target.dy,
-          duration: simulationDuration,
           scale: scale,
         ));
   }
 
   /// Starts the animation in the forward direction (from [value] up to [upperBound]).
   TickerFuture forward({Offset? from}) {
-    assert(() {
-      if (duration == null) {
-        throw FlutterError(
-          'PhysicsController2D.forward() called with no default duration.\n'
-          'The "duration" property should be set, either in the constructor or later, before '
-          'calling forward().',
-        );
-      }
-      return true;
-    }());
     _direction = _AnimationDirection.forward;
     if (from != null) {
       value = from;
@@ -230,25 +186,11 @@ class PhysicsController2D extends Animation<Offset>
 
   /// Starts the animation in reverse (from [value] down to [lowerBound]).
   TickerFuture reverse({Offset? from}) {
-    assert(() {
-      if (duration == null && reverseDuration == null) {
-        throw FlutterError(
-          'PhysicsController2D.reverse() called with no default duration or reverseDuration.\n'
-          'The "duration" or "reverseDuration" property should be set, either in the constructor or later, before '
-          'calling reverse().',
-        );
-      }
-      return true;
-    }());
     _direction = _AnimationDirection.reverse;
     if (from != null) {
       value = from;
     }
-    final Duration d = reverseDuration ?? duration!;
-    return animateTo(
-      lowerBound,
-      duration: d,
-    );
+    return animateTo(lowerBound);
   }
 
   /// Drives the animation with a spring simulation, typical "fling" behavior in 2D.
@@ -339,23 +281,13 @@ class PhysicsController2D extends Animation<Offset>
     Offset? min,
     Offset? max,
     bool reverse = false,
-    Duration? period,
     int? count,
     Simulation2D? physics,
   }) {
     min ??= lowerBound;
     max ??= upperBound;
-    period ??= duration;
 
     assert(() {
-      if (period == null) {
-        throw FlutterError(
-          'PhysicsController2D.repeat() called without an explicit period and with no default Duration.\n'
-          'Either the "period" argument to repeat() should be provided, or the '
-          '"duration" property should be set, either in the constructor or later, before '
-          'calling repeat().',
-        );
-      }
       if (count != null && count <= 0) {
         throw FlutterError('PhysicsController2D.repeat() "count" must be > 0');
       }
@@ -372,7 +304,7 @@ class PhysicsController2D extends Animation<Offset>
       min.dx,
       max.dx,
       reverse,
-      period!,
+      null,
       physics.xPhysics,
       _directionSetter,
       count,
@@ -382,7 +314,7 @@ class PhysicsController2D extends Animation<Offset>
       min.dy,
       max.dy,
       reverse,
-      period,
+      null,
       physics.yPhysics,
       _directionSetter,
       count,

@@ -20,55 +20,14 @@ class PhysicsController extends Animation<double>
         AnimationLocalStatusListenersMixin {
   /// Creates a physical animation controller.
   ///
-  /// * `value` is the initial value of the animation. If defaults to the lower
-  ///   bound.
-  ///
-  /// * [duration] is the length of time this animation should last.
-  ///
-  /// * [defaultPhysics] is the default physics simulation to use for this controller.
-  /// Defaults to [Spring.elegant].
-  ///
-  /// * [debugLabel] is a string to help identify this animation during
-  ///   debugging (used by [toString]).
+  /// {@macro physics_controller_parameters}
   ///
   /// * [lowerBound] is the smallest value this animation can obtain and the
   ///   value at which this animation is deemed to be dismissed.
   ///
   /// * [upperBound] is the largest value this animation can obtain and the
   ///   value at which this animation is deemed to be completed.
-  ///
-  /// * `vsync` is the required [TickerProvider] for the current context.
   PhysicsController({
-    double? value,
-    this.duration,
-    this.reverseDuration,
-    this.debugLabel,
-    this.lowerBound = double.negativeInfinity,
-    this.upperBound = double.infinity,
-    this.animationBehavior = AnimationBehavior.normal,
-    Physics? defaultPhysics,
-    required TickerProvider vsync,
-  })  : assert(upperBound >= lowerBound),
-        _direction = _AnimationDirection.forward,
-        defaultPhysics = defaultPhysics ?? Spring(description: Spring.elegant) {
-    _ticker = vsync.createTicker(_tick);
-    _internalSetValue(value ?? lowerBound);
-  }
-
-  /// Creates a physical animation controller with a bounded range.
-  ///
-  /// * [value] is the initial value of the animation.
-  ///
-  /// * [duration] is the length of time this animation should last.
-  ///
-  /// * [debugLabel] is a string to help identify this animation during
-  ///   debugging (used by [toString]).
-  ///
-  /// * `vsync` is the required [TickerProvider] for the current context.
-  ///
-  /// This constructor is most useful for animations that will be driven using a
-  /// physics simulation.
-  PhysicsController.bounded({
     double value = 0.0,
     this.duration,
     this.reverseDuration,
@@ -77,11 +36,47 @@ class PhysicsController extends Animation<double>
     this.upperBound = 1.0,
     required TickerProvider vsync,
     this.animationBehavior = AnimationBehavior.preserve,
-    this.defaultPhysics = Curves.ease,
+    Physics? defaultPhysics,
   })  : assert(upperBound >= lowerBound),
-        _direction = _AnimationDirection.forward {
+        assert(duration != null ||
+            reverseDuration != null ||
+            defaultPhysics is PhysicalSimulation?),
+        _direction = _AnimationDirection.forward,
+        defaultPhysics = defaultPhysics ?? Spring.elegant {
     _ticker = vsync.createTicker(_tick);
     _internalSetValue(value);
+  }
+
+  /// Creates a physical animation controller with an unounded range.
+  ///
+  /// {@template physics_controller_parameters}
+  /// * [value] is the initial value of the animation.
+  ///
+  /// * [duration] is the length of time this animation should last. Required if
+  ///   [defaultPhysics] is not a [PhysicalSimulation].
+  ///
+  /// * [debugLabel] is a string to help identify this animation during
+  ///   debugging (used by [toString]).
+  ///
+  /// * `vsync` is the required [TickerProvider] for the current context.
+  /// {@endtemplate}
+  PhysicsController.unbounded({
+    double? value,
+    this.duration,
+    this.reverseDuration,
+    this.debugLabel,
+    this.animationBehavior = AnimationBehavior.normal,
+    Physics? defaultPhysics,
+    required TickerProvider vsync,
+  })  : lowerBound = double.negativeInfinity,
+        upperBound = double.infinity,
+        assert(duration != null ||
+            reverseDuration != null ||
+            defaultPhysics is PhysicalSimulation?),
+        _direction = _AnimationDirection.forward,
+        defaultPhysics = defaultPhysics ?? Spring.elegant {
+    _ticker = vsync.createTicker(_tick);
+    _internalSetValue(value ?? lowerBound);
   }
 
   /// The value at which this animation is deemed to be dismissed.
@@ -91,7 +86,7 @@ class PhysicsController extends Animation<double>
   final double upperBound;
 
   /// The default physics simulation to use for this controller.
-  final Physics defaultPhysics;
+  Physics defaultPhysics;
 
   /// A label that is used in the [toString] output.
   final String? debugLabel;
@@ -176,16 +171,6 @@ class PhysicsController extends Animation<double>
 
   /// Starts running this animation forwards (towards the end).
   TickerFuture forward({double? from}) {
-    assert(() {
-      if (duration == null) {
-        throw FlutterError(
-          'PhysicalController.forward() called with no default duration.\n'
-          'The "duration" property should be set, either in the constructor or later, before '
-          'calling the forward() function.',
-        );
-      }
-      return true;
-    }());
     assert(
       _ticker != null,
       'PhysicalController.forward() called after PhysicalController.dispose()\n'
@@ -200,16 +185,6 @@ class PhysicsController extends Animation<double>
 
   /// Starts running this animation in reverse (towards the beginning).
   TickerFuture reverse({double? from}) {
-    assert(() {
-      if (duration == null && reverseDuration == null) {
-        throw FlutterError(
-          'PhysicalController.reverse() called with no default duration or reverseDuration.\n'
-          'The "duration" or "reverseDuration" property should be set, either in the constructor or later, before '
-          'calling the reverse() function.',
-        );
-      }
-      return true;
-    }());
     assert(
       _ticker != null,
       'PhysicalController.reverse() called after PhysicalController.dispose()\n'
@@ -226,19 +201,9 @@ class PhysicsController extends Animation<double>
   TickerFuture animateTo(
     double target, {
     Duration? duration,
-    Physics physics = Curves.linear,
+    Physics? physics,
   }) {
-    assert(() {
-      if (this.duration == null && duration == null) {
-        throw FlutterError(
-          'PhysicalController.animateTo() called with no explicit duration and no default duration.\n'
-          'Either the "duration" argument to the animateTo() method should be provided, or the '
-          '"duration" property should be set, either in the constructor or later, before '
-          'calling the animateTo() function.',
-        );
-      }
-      return true;
-    }());
+    physics ??= defaultPhysics;
     assert(
       _ticker != null,
       'PhysicalController.animateTo() called after PhysicalController.dispose()\n'
@@ -252,9 +217,10 @@ class PhysicsController extends Animation<double>
   TickerFuture _animateToInternal(
     double target, {
     Duration? duration,
-    Physics physics = Curves.linear,
+    Physics? physics,
     Tolerance tolerance = Tolerance.defaultTolerance,
   }) {
+    physics ??= defaultPhysics;
     final double scale = switch (animationBehavior) {
       AnimationBehavior.normal
           when SemanticsBinding.instance.disableAnimations =>
@@ -267,11 +233,13 @@ class PhysicsController extends Animation<double>
       final double range = upperBound - lowerBound;
       final double remainingFraction =
           range.isFinite ? (target - _value).abs() / range : 1.0;
-      final Duration directionDuration =
+      final directionDuration =
           (_direction == _AnimationDirection.reverse && reverseDuration != null)
-              ? reverseDuration!
-              : this.duration!;
-      simulationDuration = directionDuration * remainingFraction;
+              ? reverseDuration
+              : this.duration;
+      simulationDuration = directionDuration == null
+          ? null
+          : directionDuration * remainingFraction;
     } else if (target == value) {
       simulationDuration = Duration.zero;
     }
@@ -289,7 +257,6 @@ class PhysicsController extends Animation<double>
       return TickerFuture.complete();
     }
 
-    assert(simulationDuration > Duration.zero);
     assert(!isAnimating);
 
     if (physics is PhysicalSimulation) {
@@ -302,11 +269,14 @@ class PhysicsController extends Animation<double>
       ));
     }
 
+    assert(simulationDuration != null,
+        "Duration must be provided if physics is not a [PhysicalSimulation].");
+
     return _startSimulation(
       _InterpolationSimulation(
         _value,
         target,
-        simulationDuration,
+        simulationDuration!,
         physics,
         scale,
       ),
@@ -479,22 +449,12 @@ class PhysicsController extends Animation<double>
     bool reverse = false,
     Duration? period,
     int? count,
-    Physics physics = Curves.linear,
+    Physics? physics,
   }) {
     min ??= lowerBound;
     max ??= upperBound;
     period ??= duration;
-    assert(() {
-      if (period == null) {
-        throw FlutterError(
-          'PhysicalController.repeat() called without an explicit period and with no default Duration.\n'
-          'Either the "period" argument to the repeat() method should be provided, or the '
-          '"duration" property should be set, either in the constructor or later, before '
-          'calling the repeat() function.',
-        );
-      }
-      return true;
-    }());
+    physics ??= defaultPhysics;
     assert(max >= min);
     assert(max <= upperBound && min >= lowerBound);
     assert(count == null || count > 0,
@@ -507,7 +467,7 @@ class PhysicsController extends Animation<double>
       min,
       max,
       reverse,
-      period!,
+      period,
       physics,
       _directionSetter,
       count,
@@ -585,14 +545,17 @@ class _RepeatingSimulation extends Simulation {
     this.min,
     this.max,
     this.reverse,
-    Duration period,
+    Duration? period,
     Physics physics,
     this.directionSetter,
     this.count,
   )   : assert(count == null || count > 0,
             'Count shall be greater than zero if not null'),
-        _periodInSeconds =
-            period.inMicroseconds / Duration.microsecondsPerSecond {
+        assert(physics is PhysicalSimulation || period != null,
+            "Period must be provided if physics is not a [PhysicalSimulation].") {
+    period ??= Duration(
+        milliseconds: ((physics as PhysicalSimulation).duration * 1000).ceil());
+    _periodInSeconds = period.inMicroseconds / Duration.microsecondsPerSecond;
     assert(_periodInSeconds > 0.0);
     assert(_initialT >= 0.0);
     if (physics is PhysicalSimulation) {
@@ -611,7 +574,7 @@ class _RepeatingSimulation extends Simulation {
   final bool reverse;
   final int? count;
   final _DirectionSetter directionSetter;
-  final double _periodInSeconds;
+  late final double _periodInSeconds;
   final double _initialValue;
   late final Physics _physics;
 
@@ -632,7 +595,9 @@ class _RepeatingSimulation extends Simulation {
     final bool isPlayingReverse =
         reverse && (totalTimeInSeconds ~/ _periodInSeconds).isOdd;
 
-    final fn = _physics is PhysicalSimulation ? _physics.x : _physics.transform;
+    final fn = _physics is PhysicalSimulation
+        ? (_physics as PhysicalSimulation).x
+        : _physics.transform;
 
     if (isPlayingReverse) {
       directionSetter(_AnimationDirection.reverse);
@@ -646,7 +611,7 @@ class _RepeatingSimulation extends Simulation {
   @override
   double dx(double timeInSeconds) {
     if (_physics is PhysicalSimulation) {
-      return _physics.dx(timeInSeconds);
+      return (_physics as PhysicalSimulation).dx(timeInSeconds);
     }
     final double epsilon = tolerance.time;
     return (x(timeInSeconds + epsilon) - x(timeInSeconds - epsilon)) /
