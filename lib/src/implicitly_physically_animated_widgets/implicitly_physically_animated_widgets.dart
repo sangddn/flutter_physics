@@ -8,46 +8,43 @@
 // PhysicsController to drive changes.
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart'
-    hide
-        AnimatedContainer,
-        AnimatedPadding,
-        AnimatedAlign,
-        AnimatedPositioned,
-        AnimatedPositionedDirectional,
-        AnimatedScale,
-        AnimatedRotation,
-        AnimatedSlide,
-        AnimatedOpacity,
-        AnimatedDefaultTextStyle,
-        AnimatedFractionallySizedBox,
-        AnimatedPhysicalModel,
-        SliverAnimatedOpacity;
+import 'package:flutter/widgets.dart';
 import 'package:flutter_physics/flutter_physics.dart';
 
-// ---------------------------------------------------------------------------
-// ImplicitlyPhysicallyAnimatedWidget and its State
-// ---------------------------------------------------------------------------
-
 /// A base class resembling `ImplicitlyAnimatedWidget` driven by a [PhysicsController].
-///
-/// Instead of providing a [curve] and [duration], you typically provide
-/// a [Duration] (or override the built-in [duration]) and possibly a custom [Physics].
-/// The rest of the pattern is analogous to ImplicitlyAnimatedWidget.
+/// {@macro ImplicitlyPhysicallyAnimatedWidget}
 abstract class ImplicitlyPhysicallyAnimatedWidget extends StatefulWidget {
+  /// Creates a new [ImplicitlyPhysicallyAnimatedWidget].
+  ///
+  /// {@template ImplicitlyPhysicallyAnimatedWidget}
+  /// * [duration] is the length of time this "implicit" animation should last,
+  ///   unless overridden. This is used as the default for the [PhysicsController]'s
+  ///   forward or reverse calls. For best results, if physics is [PhysicalSimulation]
+  ///   consider leaving this null. For non-[PhysicalSimulation] physics, such
+  ///   as Flutter's built-in [Curve], this is required.
+  ///
+  /// * [physics] is the [Physics] to use for transitions. Defaults to
+  ///   [Spring.elegant] if not provided.
+  ///
+  /// * [onEnd] is a callback that is called when the animation completes.
+  ///
+  /// See also:
+  /// - [PhysicallyAnimatedWidgetState], which is the state class for this widget.
+  /// - [PhysicsController], which is the controller class for this widget.
+  /// {@endtemplate}
   const ImplicitlyPhysicallyAnimatedWidget({
     super.key,
-    required this.duration,
+    this.duration,
     this.physics,
     this.onEnd,
-  });
+  }) : assert(duration != null || physics is PhysicalSimulation?);
 
   /// The length of time this "implicit" animation should last, unless overridden.
   /// This is used as the default for the [PhysicsController]'s forward or reverse calls.
-  final Duration duration;
+  final Duration? duration;
 
   /// If non-null, the [Physics] to use for transitions.
-  /// Defaults to [Spring.defaultElegant] if not provided.
+  /// Defaults to [Spring.elegant] if not provided.
   final Physics? physics;
 
   /// Called every time an animation completes.
@@ -76,11 +73,10 @@ typedef TweenConstructor<T extends Object> = Tween<T> Function(T value);
 abstract class PhysicallyAnimatedWidgetState<
         T extends ImplicitlyPhysicallyAnimatedWidget> extends State<T>
     with SingleTickerProviderStateMixin<T> {
-  late final PhysicsController _controller;
-  late Animation<double> _animation;
+  late PhysicsController _controller;
 
   /// The main animation that this state uses. Typically used to evaluate tweens.
-  Animation<double> get animation => _animation;
+  Animation<double> get animation => _controller;
 
   /// Exposes the underlying [PhysicsController].
   PhysicsController get controller => _controller;
@@ -97,20 +93,10 @@ abstract class PhysicallyAnimatedWidgetState<
     );
 
     // Listen for completion
-    _controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed ||
-          status == AnimationStatus.dismissed) {
-        widget.onEnd?.call();
-      }
-    });
+    _controller.addStatusListener(_handleStatusChange);
 
-    // We'll drive a simple [Curves.linear] style interpolation on top of the
-    // physics value (0..1). If you want custom progress transforms, you can
-    // override or do something else. For typical usage, we just let the
-    // [controller]'s value go from 0 to 1 linearly by default. For more advanced
-    // usage, you could do your own hooking here.
-    _animation = _controller;
     _constructTweens();
+    didUpdateTweens();
   }
 
   @override
@@ -121,14 +107,9 @@ abstract class PhysicallyAnimatedWidgetState<
     if (widget.duration != oldWidget.duration) {
       _controller.duration = widget.duration;
     }
-    // If user provided a new physics, we might want to re-sync or forcibly adapt it.
-    // We'll just store it as defaultPhysics. Next animation will pick it up.
+    // If user provided a new physics, we want to re-sync or forcibly adapt it.
     if (widget.physics != oldWidget.physics) {
-      // There's no direct "set defaultPhysics" but we can do:
-      // We could re-create the controller, or just store it. We'll do a hack:
-      _controller.stop();
-      _controller.dispose();
-      _recreateController();
+      _updateController();
     }
 
     if (_constructTweens()) {
@@ -141,25 +122,13 @@ abstract class PhysicallyAnimatedWidgetState<
     }
   }
 
-  void _recreateController() {
-    final oldValue = _controller.value;
-    final oldStatus = _controller.status;
-    _controller.removeStatusListener(_handleStatusChange);
-
-    final newController = PhysicsController(
-      vsync: this,
-      duration: widget.duration,
-      defaultPhysics: widget.physics,
-    );
-    newController.addStatusListener(_handleStatusChange);
-    // Attempt to preserve the old progress
-    newController.value = oldValue;
-    if (oldStatus == AnimationStatus.forward ||
-        oldStatus == AnimationStatus.reverse) {
-      newController.forward();
+  void _updateController() {
+    _controller.defaultPhysics = widget.physics ?? _controller.defaultPhysics;
+    final status = _controller.status;
+    if (status == AnimationStatus.forward ||
+        status == AnimationStatus.reverse) {
+      _controller.forward();
     }
-    _controller = newController;
-    _animation = _controller;
   }
 
   void _handleStatusChange(AnimationStatus status) {
@@ -179,7 +148,8 @@ abstract class PhysicallyAnimatedWidgetState<
     // Subclasses must implement [forEachTween].
     // We'll pass them a "visitor" that checks if something changed.
     bool somethingChanged = false;
-    forEachTween((tween, targetValue, constructor) {
+    forEachTween((Tween<dynamic>? tween, dynamic targetValue,
+        TweenConstructor<dynamic> constructor) {
       // If there's no target, we discard the tween
       if (targetValue == null) {
         if (tween != null) {
@@ -236,7 +206,7 @@ mixin _RebuildOnTick<T extends ImplicitlyPhysicallyAnimatedWidget> on State<T> {
 class AContainer extends ImplicitlyPhysicallyAnimatedWidget {
   const AContainer({
     super.key,
-    required super.duration,
+    super.duration,
     this.decoration,
     this.foregroundDecoration,
     this.alignment,
@@ -349,8 +319,8 @@ class _AContainerState extends PhysicallyAnimatedWidgetState<AContainer>
   @override
   Widget build(BuildContext context) {
     final animation = this.animation;
-    return Padding(
-      padding: _margin!.evaluate(animation),
+    return BetterPadding(
+      padding: _margin?.evaluate(animation) ?? widget.margin ?? EdgeInsets.zero,
       child: Container(
         decoration: _decoration?.evaluate(animation),
         foregroundDecoration: _foregroundDecoration?.evaluate(animation),
@@ -359,8 +329,10 @@ class _AContainerState extends PhysicallyAnimatedWidgetState<AContainer>
         transform: _transform?.evaluate(animation),
         transformAlignment: _transformAlignment?.evaluate(animation),
         clipBehavior: widget.clipBehavior,
-        child: Padding(
-          padding: _padding!.evaluate(animation),
+        child: BetterPadding(
+          padding: _padding?.evaluate(animation) ??
+              widget.padding ??
+              EdgeInsets.zero,
           child: widget.child,
         ),
       ),
@@ -373,7 +345,7 @@ class APadding extends ImplicitlyPhysicallyAnimatedWidget {
   const APadding({
     super.key,
     required this.padding,
-    required super.duration,
+    super.duration,
     super.physics,
     this.child,
     super.onEnd,
@@ -410,12 +382,12 @@ class _APaddingState extends PhysicallyAnimatedWidgetState<APadding>
   @override
   Widget build(BuildContext context) {
     final padding = _padding!.evaluate(animation);
-    return _Padding(padding: padding, child: widget.child);
+    return BetterPadding(padding: padding, child: widget.child);
   }
 }
 
-class _Padding extends StatelessWidget {
-  const _Padding({required this.padding, required this.child});
+class BetterPadding extends StatelessWidget {
+  const BetterPadding({required this.padding, required this.child, super.key});
 
   final EdgeInsetsGeometry padding;
   final Widget? child;
@@ -473,7 +445,7 @@ class AAlign extends ImplicitlyPhysicallyAnimatedWidget {
     this.child,
     this.heightFactor,
     this.widthFactor,
-    required super.duration,
+    super.duration,
     super.physics,
     super.onEnd,
   });
@@ -541,7 +513,7 @@ class _AAlignState extends PhysicallyAnimatedWidgetState<AAlign>
 class APositioned extends ImplicitlyPhysicallyAnimatedWidget {
   const APositioned({
     super.key,
-    required super.duration,
+    super.duration,
     this.left,
     this.top,
     this.right,
@@ -610,7 +582,7 @@ class _APositionedState extends PhysicallyAnimatedWidgetState<APositioned>
 class APositionedDirectional extends ImplicitlyPhysicallyAnimatedWidget {
   const APositionedDirectional({
     super.key,
-    required super.duration,
+    super.duration,
     this.start,
     this.top,
     this.end,
@@ -690,7 +662,7 @@ class AScale extends ImplicitlyPhysicallyAnimatedWidget {
     this.child,
     this.alignment = Alignment.center,
     this.filterQuality,
-    required super.duration,
+    super.duration,
     super.physics,
     super.onEnd,
   });
@@ -714,6 +686,7 @@ class AScale extends ImplicitlyPhysicallyAnimatedWidget {
 
 class _AScaleState extends PhysicallyAnimatedWidgetState<AScale> {
   Tween<double>? _scale;
+  late Animation<double> _scaleAnimation;
 
   @override
   void forEachTween(PhysicsTweenVisitor<dynamic> visitor) {
@@ -729,10 +702,14 @@ class _AScaleState extends PhysicallyAnimatedWidgetState<AScale> {
   }
 
   @override
+  void didUpdateTweens() {
+    _scaleAnimation = animation.drive(_scale!);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final double currentScale = _scale?.evaluate(animation) ?? widget.scale;
-    return Transform.scale(
-      scale: currentScale.clamp(0.0, double.infinity),
+    return ScaleTransition(
+      scale: _scaleAnimation,
       alignment: widget.alignment,
       filterQuality: widget.filterQuality,
       child: widget.child,
@@ -751,7 +728,7 @@ class ARotation extends ImplicitlyPhysicallyAnimatedWidget {
     this.child,
     this.alignment = Alignment.center,
     this.filterQuality,
-    required super.duration,
+    super.duration,
     super.physics,
     super.onEnd,
   });
@@ -775,6 +752,7 @@ class ARotation extends ImplicitlyPhysicallyAnimatedWidget {
 
 class _ARotationState extends PhysicallyAnimatedWidgetState<ARotation> {
   Tween<double>? _turns;
+  late Animation<double> _turnsAnimation;
 
   @override
   void forEachTween(PhysicsTweenVisitor<dynamic> visitor) {
@@ -790,10 +768,14 @@ class _ARotationState extends PhysicallyAnimatedWidgetState<ARotation> {
   }
 
   @override
+  void didUpdateTweens() {
+    _turnsAnimation = animation.drive(_turns!);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final currentTurns = _turns?.evaluate(animation) ?? widget.turns;
-    return Transform.rotate(
-      angle: currentTurns * 2.0 * 3.141592653589793,
+    return RotationTransition(
+      turns: _turnsAnimation,
       alignment: widget.alignment,
       filterQuality: widget.filterQuality,
       child: widget.child,
@@ -810,7 +792,7 @@ class ASlide extends ImplicitlyPhysicallyAnimatedWidget {
     super.key,
     required this.offset,
     this.child,
-    required super.duration,
+    super.duration,
     super.physics,
     super.onEnd,
   });
@@ -830,6 +812,7 @@ class ASlide extends ImplicitlyPhysicallyAnimatedWidget {
 
 class _ASlideState extends PhysicallyAnimatedWidgetState<ASlide> {
   Tween<Offset>? _offset;
+  late Animation<Offset> _offsetAnimation;
 
   @override
   void forEachTween(PhysicsTweenVisitor<dynamic> visitor) {
@@ -845,10 +828,14 @@ class _ASlideState extends PhysicallyAnimatedWidgetState<ASlide> {
   }
 
   @override
+  void didUpdateTweens() {
+    _offsetAnimation = animation.drive(_offset!);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final value = _offset?.evaluate(animation) ?? widget.offset;
-    return FractionalTranslation(
-      translation: value,
+    return SlideTransition(
+      position: _offsetAnimation,
       child: widget.child,
     );
   }
@@ -861,7 +848,7 @@ class _ASlideState extends PhysicallyAnimatedWidgetState<ASlide> {
 class AOpacity extends ImplicitlyPhysicallyAnimatedWidget {
   const AOpacity({
     super.key,
-    required super.duration,
+    super.duration,
     required this.opacity,
     this.child,
     this.alwaysIncludeSemantics = false,
@@ -887,6 +874,7 @@ class AOpacity extends ImplicitlyPhysicallyAnimatedWidget {
 
 class _AOpacityState extends PhysicallyAnimatedWidgetState<AOpacity> {
   Tween<double>? _opacity;
+  late Animation<double> _opacityAnimation;
 
   @override
   void forEachTween(PhysicsTweenVisitor<dynamic> visitor) {
@@ -896,19 +884,24 @@ class _AOpacityState extends PhysicallyAnimatedWidgetState<AOpacity> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final double val = _opacity?.evaluate(animation) ?? widget.opacity;
-    return Opacity(
-      opacity: val.clamp(0.0, 1.0),
-      alwaysIncludeSemantics: widget.alwaysIncludeSemantics,
-      child: widget.child,
-    );
+  void didUpdateTweens() {
+    _opacityAnimation = animation.drive(_opacity!);
   }
 
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<Tween<double>>('opacity', _opacity));
+    properties.add(
+        DiagnosticsProperty<Animation<double>>('opacity', _opacityAnimation));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacityAnimation,
+      alwaysIncludeSemantics: widget.alwaysIncludeSemantics,
+      child: widget.child,
+    );
   }
 }
 
@@ -919,7 +912,7 @@ class _AOpacityState extends PhysicallyAnimatedWidgetState<AOpacity> {
 class ASliverOpacity extends ImplicitlyPhysicallyAnimatedWidget {
   const ASliverOpacity({
     super.key,
-    required super.duration,
+    super.duration,
     required this.opacity,
     this.sliver,
     this.alwaysIncludeSemantics = false,
@@ -986,7 +979,7 @@ class ADefaultTextStyle extends ImplicitlyPhysicallyAnimatedWidget {
     this.maxLines,
     this.textWidthBasis = TextWidthBasis.parent,
     this.textHeightBehavior,
-    required super.duration,
+    super.duration,
     super.physics,
     super.onEnd,
   });
@@ -1065,7 +1058,7 @@ class _ADefaultTextStyleState
 class APhysicalModel extends ImplicitlyPhysicallyAnimatedWidget {
   const APhysicalModel({
     super.key,
-    required super.duration,
+    super.duration,
     required this.child,
     this.shape = BoxShape.rectangle,
     this.clipBehavior = Clip.none,
@@ -1101,10 +1094,15 @@ class APhysicalModel extends ImplicitlyPhysicallyAnimatedWidget {
         .add(DiagnosticsProperty<BorderRadius>('borderRadius', borderRadius));
     properties.add(DoubleProperty('elevation', elevation));
     properties.add(ColorProperty('color', color));
-    properties.add(FlagProperty('animateColor', value: animateColor));
+    properties.add(FlagProperty('animateColor',
+        value: animateColor,
+        ifTrue: 'animate color',
+        ifFalse: 'do not animate color'));
     properties.add(ColorProperty('shadowColor', shadowColor));
-    properties
-        .add(FlagProperty('animateShadowColor', value: animateShadowColor));
+    properties.add(FlagProperty('animateShadowColor',
+        value: animateShadowColor,
+        ifTrue: 'animate shadow color',
+        ifFalse: 'do not animate shadow color'));
   }
 }
 
@@ -1167,7 +1165,7 @@ class _APhysicalModelState extends PhysicallyAnimatedWidgetState<APhysicalModel>
 class AFractionallySizedBox extends ImplicitlyPhysicallyAnimatedWidget {
   const AFractionallySizedBox({
     super.key,
-    required super.duration,
+    super.duration,
     this.alignment = Alignment.center,
     this.widthFactor,
     this.heightFactor,
