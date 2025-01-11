@@ -12,18 +12,15 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_physics/flutter_physics.dart';
 
 /// A base class resembling `ImplicitlyAnimatedWidget` driven by a [PhysicsController].
-/// {@macro ImplicitlyPhysicsAnimatedWidget}
-abstract class ImplicitlyPhysicsAnimatedWidget extends StatefulWidget {
-  /// Creates a new [ImplicitlyPhysicsAnimatedWidget].
-  ///
-  /// {@template ImplicitlyPhysicsAnimatedWidget}
+/// {@template ImplicitlyPhysicsAnimatedWidget}
   /// * [duration] is the length of time this "implicit" animation should last,
   ///   unless overridden. This is used as the default for the [PhysicsController]'s
   ///   forward or reverse calls. For best results, if physics is [PhysicsSimulation]
   ///   consider leaving this null. For non-[PhysicsSimulation] physics, such
   ///   as Flutter's built-in [Curve], this is required.
   ///
-  /// * [physics] is the [Physics] to use for transitions. Defaults to
+  /// * [physics] is the [Physics] to use for transitions. Can use any
+  ///   [PhysicsSimulation] or Flutter's built-in [Curve]. Defaults to
   ///   [Spring.elegant] if not provided.
   ///
   /// * [onEnd] is a callback that is called when the animation completes.
@@ -32,6 +29,9 @@ abstract class ImplicitlyPhysicsAnimatedWidget extends StatefulWidget {
   /// - [PhysicsAnimatedWidgetState], which is the state class for this widget.
   /// - [PhysicsController], which is the controller class for this widget.
   /// {@endtemplate}
+abstract class ImplicitlyPhysicsAnimatedWidget extends StatefulWidget {
+  /// Creates a new [ImplicitlyPhysicsAnimatedWidget].
+  /// {@macro ImplicitlyPhysicsAnimatedWidget}
   const ImplicitlyPhysicsAnimatedWidget({
     super.key,
     this.duration,
@@ -43,8 +43,8 @@ abstract class ImplicitlyPhysicsAnimatedWidget extends StatefulWidget {
   /// This is used as the default for the [PhysicsController]'s forward or reverse calls.
   final Duration? duration;
 
-  /// If non-null, the [Physics] to use for transitions.
-  /// Defaults to [Spring.elegant] if not provided.
+  /// The [Physics] to use for transitions. Can use any [PhysicsSimulation] or
+  /// Flutter's built-in [Curve]. Defaults to [Spring.elegant] if not provided.
   final Physics? physics;
 
   /// Called every time an animation completes.
