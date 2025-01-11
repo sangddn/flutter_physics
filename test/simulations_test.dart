@@ -171,7 +171,7 @@ void main() {
 
       expect(simulation.x(0.0), equals(const Offset(0.0, 0.0)));
 
-      final finalPos = simulation.x(simulation.xPhysics.duration);
+      final finalPos = simulation.x((simulation.xPhysics as Spring).duration);
       expect(finalPos.dx, closeTo(100.0, 0.1));
       expect(finalPos.dy, closeTo(200.0, 0.1));
     });
@@ -199,8 +199,8 @@ void main() {
       );
 
       final maxDuration = math.max(
-        simulation.xPhysics.duration,
-        simulation.yPhysics.duration,
+        (simulation.xPhysics as Spring).duration,
+        (simulation.yPhysics as Gravity).duration,
       );
       final finalPos = simulation.x(maxDuration);
 
@@ -232,14 +232,14 @@ void main() {
 
       expect(simulation.isDone(0.0), isFalse);
       final double t = math.max(
-        simulation.xPhysics.duration,
-        simulation.yPhysics.duration,
+        (simulation.xPhysics as Spring).duration,
+        (simulation.yPhysics as Spring).duration,
       );
       expect(simulation.isDone(t + 1), isTrue);
     });
   });
 
-  group('ClampedPhysicalSimulation', () {
+  group('ClampedPhysicsSimulation', () {
     test('clamps position within bounds', () {
       final spring = Spring(
         description: Spring.swiftDescription,
@@ -248,7 +248,7 @@ void main() {
         initialVelocity: 1000.0,
       );
 
-      final clamped = ClampedPhysicalSimulation(
+      final clamped = ClampedPhysicsSimulation(
         spring,
         xMin: 0.0,
         xMax: 100.0,
@@ -270,7 +270,7 @@ void main() {
         initialVelocity: 1000.0,
       );
 
-      final clamped = ClampedPhysicalSimulation(
+      final clamped = ClampedPhysicsSimulation(
         spring,
         dxMin: -500.0,
         dxMax: 500.0,
@@ -291,7 +291,7 @@ void main() {
         end: 100.0,
       );
 
-      final clamped = ClampedPhysicalSimulation(spring);
+      final clamped = ClampedPhysicsSimulation(spring);
 
       expect(clamped.isDone(0.0), spring.isDone(0.0));
       expect(

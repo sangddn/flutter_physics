@@ -1,20 +1,40 @@
-part of 'physical_simulations.dart';
+part of 'physics_simulations.dart';
 
 typedef Physics2D = Curve2D;
 
 /// A wrapper class that combines two simulations to create 2D motion
 class Simulation2D extends Curve2D {
   /// Creates a 2D simulation using separate simulations for x and y coordinates
-  Simulation2D(this._x, this._y);
+  const Simulation2D(this._x, this._y)
+      : assert(_x is PhysicsSimulation == _y is PhysicsSimulation,
+            "Both x and y must be physics simulations or both must be regular curves.");
 
-  final PhysicsSimulation _x, _y;
+  final Physics _x, _y;
 
-  Offset x(double time) => Offset(_x.x(time), _y.x(time));
-  Offset dx(double time) => Offset(_x.dx(time), _y.dx(time));
-  bool isDone(double time) => _x.isDone(time) && _y.isDone(time);
+  bool isPhysicsBased() => _x is PhysicsSimulation && _y is PhysicsSimulation;
 
-  PhysicsSimulation get xPhysics => _x;
-  PhysicsSimulation get yPhysics => _y;
+  Offset x(double time) {
+    assert(isPhysicsBased(),
+        "x(time) is only available for physics-based simulations.");
+    return Offset(_xSim.x(time), _ySim.x(time));
+  }
+
+  Offset dx(double time) {
+    assert(isPhysicsBased(),
+        "dx(time) is only available for physics-based simulations.");
+    return Offset(_xSim.dx(time), _ySim.dx(time));
+  }
+
+  bool isDone(double time) {
+    assert(isPhysicsBased(),
+        "isDone(time) is only available for physics-based simulations.");
+    return _xSim.isDone(time) && _ySim.isDone(time);
+  }
+
+  Curve get xPhysics => _x;
+  Curve get yPhysics => _y;
+  PhysicsSimulation get _xSim => _x as PhysicsSimulation;
+  PhysicsSimulation get _ySim => _y as PhysicsSimulation;
 
   @override
   Offset transform(double t) => Offset(_x.transform(t), _y.transform(t));

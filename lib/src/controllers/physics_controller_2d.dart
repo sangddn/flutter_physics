@@ -1,6 +1,6 @@
 part of 'physics_controller.dart';
 
-/// A controller for 2D physical animations.
+/// A controller for 2D physics-based animations.
 ///
 /// This is similar to [PhysicsController], but it works with [Simulation2D]
 /// to control animations in 2D space using [Offset] values.
@@ -9,7 +9,7 @@ class PhysicsController2D extends Animation<Offset>
         AnimationEagerListenerMixin,
         AnimationLocalListenersMixin,
         AnimationLocalStatusListenersMixin {
-  /// Creates a 2D physical animation controller.
+  /// Creates a 2D physics-based animation controller.
   ///
   /// * [value] is the initial position of the animation. Defaults to [Offset.zero].
   ///
@@ -27,17 +27,46 @@ class PhysicsController2D extends Animation<Offset>
     required TickerProvider vsync,
     this.animationBehavior = AnimationBehavior.normal,
     Simulation2D? defaultPhysics,
-    this.lowerBound = const Offset(
-      double.negativeInfinity,
-      double.negativeInfinity,
-    ),
-    this.upperBound = const Offset(double.infinity, double.infinity),
+    this.lowerBound = const Offset(0.0, 0.0),
+    this.upperBound = const Offset(1.0, 1.0),
+    this.duration,
+    this.reverseDuration,
   })  : _direction = _AnimationDirection.forward,
         defaultPhysics =
             defaultPhysics ?? Simulation2D(Spring.elegant, Spring.elegant) {
     _ticker = vsync.createTicker(_tick);
     _internalSetValue(value ?? Offset.zero);
   }
+
+  /// Creates an unbounded 2D physics-based animation controller.
+  ///
+  /// * [value] is the initial position of the animation. Defaults to [Offset.zero].
+  ///
+  /// * [duration] is the length of time this animation should last.
+  ///
+  /// * [debugLabel] is a string to help identify this animation during debugging.
+  ///
+  /// * [vsync] is the required [TickerProvider] for the current context.
+  PhysicsController2D.unbounded({
+    Offset? value,
+    String? debugLabel,
+    required TickerProvider vsync,
+    AnimationBehavior animationBehavior = AnimationBehavior.normal,
+    Simulation2D? defaultPhysics,
+    Duration? duration,
+    Duration? reverseDuration,
+  }) : this(
+          value: value,
+          debugLabel: debugLabel,
+          vsync: vsync,
+          animationBehavior: animationBehavior,
+          defaultPhysics: defaultPhysics,
+          lowerBound:
+              const Offset(double.negativeInfinity, double.negativeInfinity),
+          upperBound: const Offset(double.infinity, double.infinity),
+          duration: duration,
+          reverseDuration: reverseDuration,
+        );
 
   /// A label that is used in the [toString] output.
   final String? debugLabel;
@@ -54,6 +83,12 @@ class PhysicsController2D extends Animation<Offset>
 
   /// The upper bound (top-right corner) of the 2D bounding box.
   final Offset upperBound;
+
+  /// The duration of the animation.
+  final Duration? duration;
+
+  /// The duration of the animation when reversing.
+  final Duration? reverseDuration;
 
   Ticker? _ticker;
   (Simulation, Simulation)? _sims;
@@ -114,11 +149,13 @@ class PhysicsController2D extends Animation<Offset>
   AnimationStatus get status => _status;
   late AnimationStatus _status;
 
-  /// Stops running this animation.
-  void stop({bool canceled = true}) {
+  /// Stops running this animation and returns the current velocity.
+  Offset stop({bool canceled = true}) {
+    final velocity = this.velocity;
     _sims = null;
     _lastElapsedDuration = null;
     _ticker?.stop(canceled: canceled);
+    return velocity;
   }
 
   /// Release the resources used by this object.
@@ -142,37 +179,109 @@ class PhysicsController2D extends Animation<Offset>
   /// If [target] is the same as [value], no animation occurs.
   TickerFuture animateTo(
     Offset target, {
+    Duration? duration,
     Simulation2D? physics,
+    Offset velocityDelta = Offset.zero,
+    Offset? velocityOverride,
   }) {
-    final double scale = switch (animationBehavior) {
-      AnimationBehavior.normal
-          when SemanticsBinding.instance.disableAnimations =>
-        0.05,
-      AnimationBehavior.normal || AnimationBehavior.preserve => 1.0,
-    };
+    assert(
+      _ticker != null,
+      'PhysicsController2D.animateTo() called after PhysicsController2D.dispose()\n'
+      'PhysicsController2D methods should not be used after calling dispose.',
+    );
+    assert(
+      physics is PhysicsSimulation ||
+          (velocityOverride == null && velocityDelta == Offset.zero),
+      'VelocityDelta and VelocityOverride are only supported when physics is a PhysicsSimulation.',
+    );
+    if (duration == null) {
+      final range = upperBound - lowerBound;
+      final remainingFraction =
+          range.isFinite ? (target - _value).distance / range.distance : 1.0;
+      final directionDuration =
+          (_direction == _AnimationDirection.reverse && reverseDuration != null)
+              ? reverseDuration
+              : this.duration;
+      duration = directionDuration == null
+          ? null
+          : directionDuration * remainingFraction;
+    } else if (target == value) {
+      duration = Duration.zero;
+    }
+
+    final durationScale = duration == null
+        ? null
+        : switch (animationBehavior) {
+            AnimationBehavior.normal
+                when SemanticsBinding.instance.disableAnimations =>
+              0.05,
+            AnimationBehavior.normal || AnimationBehavior.preserve => 1.0,
+          };
 
     _direction = _AnimationDirection.forward;
 
-    if (target == value) {
-      _status = AnimationStatus.completed;
+    if (duration == Duration.zero) {
+      if (value != target) {
+        _value = _clampOffset(target, lowerBound, upperBound);
+        notifyListeners();
+      }
+      _status = (_direction == _AnimationDirection.forward)
+          ? AnimationStatus.completed
+          : AnimationStatus.dismissed;
       _checkStatusChanged();
       return TickerFuture.complete();
     }
 
-    stop();
+    final velocity = stop();
 
     physics ??= defaultPhysics;
-    return _startSimulations(
-        physics.xPhysics.copyWith(
+
+    if (physics.isPhysicsBased()) {
+      final xPhysics = physics.xPhysics as PhysicsSimulation;
+      final yPhysics = physics.yPhysics as PhysicsSimulation;
+      return _startSimulations(
+        xPhysics.copyWith(
           start: _value.dx,
           end: target.dx,
-          durationScale: scale,
+          duration: duration,
+          durationScale: durationScale,
+          initialVelocity: durationScale == null
+              ? (velocityOverride?.dx ??
+                  velocity.dx + xPhysics.initialVelocity + velocityDelta.dx)
+              : null,
         ),
-        physics.yPhysics.copyWith(
+        (physics.yPhysics as PhysicsSimulation).copyWith(
           start: _value.dy,
           end: target.dy,
-          durationScale: scale,
-        ));
+          duration: duration,
+          durationScale: durationScale,
+          initialVelocity: durationScale == null
+              ? (velocityOverride?.dy ??
+                  (velocity.dy + yPhysics.initialVelocity + velocityDelta.dy))
+              : null,
+        ),
+      );
+    }
+
+    assert(duration != null,
+        "[duration] must be provided for non-physics-based animations.");
+
+    return _startSimulations(
+      _InterpolationSimulation(
+        _value.dx,
+        target.dx,
+        duration!,
+        physics.xPhysics,
+        durationScale!,
+      ),
+      _InterpolationSimulation(
+        _value.dy,
+        target.dy,
+        duration,
+        physics.yPhysics,
+        durationScale,
+      ),
+    );
   }
 
   /// Starts the animation in the forward direction (from [value] up to [upperBound]).
@@ -193,66 +302,16 @@ class PhysicsController2D extends Animation<Offset>
     return animateTo(lowerBound);
   }
 
-  /// Drives the animation with a spring simulation, typical "fling" behavior in 2D.
-  ///
-  /// You can customize the fling by providing a 2D velocity [velocity], or
-  /// override the spring parameters with [springDescription].
-  TickerFuture fling({
-    Offset velocity = Offset.zero,
-    SpringDescription? springDescription,
-    AnimationBehavior? animationBehavior,
-  }) {
-    springDescription ??= _kFlingSpringDescription;
-    final behavior = animationBehavior ?? this.animationBehavior;
-
-    final double scale = switch (behavior) {
-      AnimationBehavior.normal
-          when SemanticsBinding.instance.disableAnimations =>
-        200.0,
-      _ => 1.0,
-    };
-
-    // Decide direction. If total velocity is negative, we consider it reverse
-    // (some arbitrary threshold). Typically you'd do per-axis, but let's keep it similar.
-    final double totalSpeed = velocity.distance;
-    if (totalSpeed == 0) {
-      // No velocity => no fling
-      return TickerFuture.complete();
-    }
-    _direction = (velocity.dx + velocity.dy) < 0
-        ? _AnimationDirection.reverse
-        : _AnimationDirection.forward;
-
-    stop();
-
-    // Simulations for X and Y with fling velocity
-    final SpringSimulation simX = SpringSimulation(
-      springDescription,
-      value.dx,
-      _direction == _AnimationDirection.forward
-          ? upperBound.dx + _kFlingTolerance.distance
-          : lowerBound.dx - _kFlingTolerance.distance,
-      velocity.dx * scale,
-    )..tolerance = _kFlingTolerance;
-
-    final SpringSimulation simY = SpringSimulation(
-      springDescription,
-      value.dy,
-      _direction == _AnimationDirection.forward
-          ? upperBound.dy + _kFlingTolerance.distance
-          : lowerBound.dy - _kFlingTolerance.distance,
-      velocity.dy * scale,
-    )..tolerance = _kFlingTolerance;
-
-    return _startSimulations(simX, simY);
-  }
-
   /// Drives the animation according to the given 2D simulation.
   TickerFuture animateWith(Simulation2D simulation) {
+    assert(simulation.isPhysicsBased(),
+        "animateWith() requires a physics-based simulation.");
     stop();
     _direction = _AnimationDirection.forward;
     return _startSimulations(
-        simulation.xPhysics as Simulation, simulation.yPhysics as Simulation);
+      simulation.xPhysics as PhysicsSimulation,
+      simulation.yPhysics as PhysicsSimulation,
+    );
   }
 
   TickerFuture _startSimulations(Simulation x, Simulation y) {
@@ -294,7 +353,7 @@ class PhysicsController2D extends Animation<Offset>
       return true;
     }());
 
-    stop();
+    final velocity = stop();
     _direction = _AnimationDirection.forward;
 
     physics ??= defaultPhysics;
@@ -306,6 +365,7 @@ class PhysicsController2D extends Animation<Offset>
       reverse,
       null,
       physics.xPhysics,
+      velocity.dx,
       _directionSetter,
       count,
     );
@@ -316,6 +376,7 @@ class PhysicsController2D extends Animation<Offset>
       reverse,
       null,
       physics.yPhysics,
+      velocity.dy,
       _directionSetter,
       count,
     );

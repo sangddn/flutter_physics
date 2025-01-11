@@ -4,11 +4,11 @@ import 'package:flutter/physics.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
 
-import '../simulations/physical_simulations.dart';
+import '../simulations/physics_simulations.dart';
 
 part 'physics_controller_2d.dart';
 
-/// A controller for physical animations.
+/// A controller for physics-based animations.
 ///
 /// This is similar to [AnimationController], but it has special handling for
 /// [PhysicsSimulation]s - allowing them to be used directly as curves while
@@ -18,7 +18,7 @@ class PhysicsController extends Animation<double>
         AnimationEagerListenerMixin,
         AnimationLocalListenersMixin,
         AnimationLocalStatusListenersMixin {
-  /// Creates a physical animation controller.
+  /// Creates a physics-based animation controller.
   ///
   /// {@macro physics_controller_parameters}
   ///
@@ -47,7 +47,7 @@ class PhysicsController extends Animation<double>
     _internalSetValue(value);
   }
 
-  /// Creates a physical animation controller with an unounded range.
+  /// Creates a physics-based animation controller with an unounded range.
   ///
   /// {@template physics_controller_parameters}
   /// * [value] is the initial value of the animation.
@@ -173,8 +173,8 @@ class PhysicsController extends Animation<double>
   TickerFuture forward({double? from}) {
     assert(
       _ticker != null,
-      'PhysicalController.forward() called after PhysicalController.dispose()\n'
-      'PhysicalController methods should not be used after calling dispose.',
+      'PhysicsController.forward() called after PhysicsController.dispose()\n'
+      'PhysicsController methods should not be used after calling dispose.',
     );
     _direction = _AnimationDirection.forward;
     if (from != null) {
@@ -187,8 +187,8 @@ class PhysicsController extends Animation<double>
   TickerFuture reverse({double? from}) {
     assert(
       _ticker != null,
-      'PhysicalController.reverse() called after PhysicalController.dispose()\n'
-      'PhysicalController methods should not be used after calling dispose.',
+      'PhysicsController.reverse() called after PhysicsController.dispose()\n'
+      'PhysicsController methods should not be used after calling dispose.',
     );
     _direction = _AnimationDirection.reverse;
     if (from != null) {
@@ -200,38 +200,46 @@ class PhysicsController extends Animation<double>
   /// Drives the animation from its current value to target.
   TickerFuture animateTo(
     double target, {
+    double velocityDelta = 0.0,
+    double? velocityOverride,
     Duration? duration,
     Physics? physics,
   }) {
     physics ??= defaultPhysics;
     assert(
       _ticker != null,
-      'PhysicalController.animateTo() called after PhysicalController.dispose()\n'
-      'PhysicalController methods should not be used after calling dispose.',
+      'PhysicsController.animateTo() called after PhysicsController.dispose()\n'
+      'PhysicsController methods should not be used after calling dispose.',
+    );
+    assert(
+      physics is PhysicsSimulation ||
+          (velocityOverride == null && velocityDelta == 0.0),
+      'VelocityDelta and VelocityOverride are only supported when physics is a PhysicsSimulation.',
     );
     _direction = _AnimationDirection.forward;
 
-    return _animateToInternal(target, duration: duration, physics: physics);
+    return _animateToInternal(
+      target,
+      duration: duration,
+      physics: physics,
+      velocityDelta: velocityDelta,
+      velocityOverride: velocityOverride,
+    );
   }
 
   TickerFuture _animateToInternal(
     double target, {
     Duration? duration,
     Physics? physics,
-    Tolerance tolerance = Tolerance.defaultTolerance,
+    double velocityDelta = 0.0,
+    double? velocityOverride,
   }) {
     physics ??= defaultPhysics;
-    final double scale = switch (animationBehavior) {
-      AnimationBehavior.normal
-          when SemanticsBinding.instance.disableAnimations =>
-        0.05,
-      AnimationBehavior.normal || AnimationBehavior.preserve => 1.0,
-    };
 
     Duration? simulationDuration = duration;
     if (simulationDuration == null) {
-      final double range = upperBound - lowerBound;
-      final double remainingFraction =
+      final range = upperBound - lowerBound;
+      final remainingFraction =
           range.isFinite ? (target - _value).abs() / range : 1.0;
       final directionDuration =
           (_direction == _AnimationDirection.reverse && reverseDuration != null)
@@ -244,7 +252,7 @@ class PhysicsController extends Animation<double>
       simulationDuration = Duration.zero;
     }
 
-    stop();
+    final currentVelocity = stop();
     if (simulationDuration == Duration.zero) {
       if (value != target) {
         _value = clampDouble(target, lowerBound, upperBound);
@@ -259,18 +267,37 @@ class PhysicsController extends Animation<double>
 
     assert(!isAnimating);
 
+    final durationScale = simulationDuration == null
+        ? null
+        : switch (animationBehavior) {
+            AnimationBehavior.normal
+                when SemanticsBinding.instance.disableAnimations =>
+              0.05,
+            AnimationBehavior.normal || AnimationBehavior.preserve => 1.0,
+          };
+
     if (physics is PhysicsSimulation) {
-      return _startSimulation(physics.copyWith(
-        duration: simulationDuration,
-        tolerance: tolerance,
-        start: _value,
-        end: target,
-        durationScale: scale,
-      ));
+      final disabledAnimation = animationBehavior == AnimationBehavior.normal &&
+          SemanticsBinding.instance.disableAnimations;
+      final initV = simulationDuration == null && !disabledAnimation
+          ? (velocityOverride ??
+              (physics.initialVelocity + currentVelocity + velocityDelta))
+          : null;
+      return _startSimulation(
+        physics.copyWith(
+          duration: disabledAnimation ? Duration.zero : simulationDuration,
+          durationScale: durationScale,
+          start: _value,
+          end: target,
+          initialVelocity: initV,
+        ),
+      );
     }
 
-    assert(simulationDuration != null,
-        "Duration must be provided if physics is not a [PhysicalSimulation].");
+    assert(
+      simulationDuration != null,
+      "Duration must be provided if physics is not a [PhysicsSimulation].",
+    );
 
     return _startSimulation(
       _InterpolationSimulation(
@@ -278,18 +305,22 @@ class PhysicsController extends Animation<double>
         target,
         simulationDuration!,
         physics,
-        scale,
+        durationScale!,
       ),
     );
   }
 
-  /// Drives the animation with a spring simulation.
+  /// Drives the animation with a spring simulation. This is purely for
+  /// compatibility with the [AnimationController.fling] method and can be
+  /// replaced with [animateTo] with a [Spring].
+  @Deprecated('Use `animateTo` with a `Spring` instead.')
   TickerFuture fling({
     double velocity = 1.0,
     SpringDescription? springDescription,
     AnimationBehavior? animationBehavior,
   }) {
     springDescription ??= _kFlingSpringDescription;
+    final currentVelocity = stop();
     _direction = velocity < 0.0
         ? _AnimationDirection.reverse
         : _AnimationDirection.forward;
@@ -298,21 +329,20 @@ class PhysicsController extends Animation<double>
         : upperBound + _kFlingTolerance.distance;
     final AnimationBehavior behavior =
         animationBehavior ?? this.animationBehavior;
-    final double scale = switch (behavior) {
+    final scale = switch (behavior) {
       AnimationBehavior.normal
           when SemanticsBinding.instance.disableAnimations =>
         200.0,
       AnimationBehavior.normal || AnimationBehavior.preserve => 1.0,
     };
 
-    final SpringSimulation simulation = SpringSimulation(
+    final simulation = SpringSimulation(
       springDescription,
       value,
       target,
-      velocity * scale,
+      velocity * scale + currentVelocity,
     )..tolerance = _kFlingTolerance;
 
-    stop();
     return _startSimulation(simulation);
   }
 
@@ -320,11 +350,16 @@ class PhysicsController extends Animation<double>
   TickerFuture animateWith(Simulation simulation) {
     assert(
       _ticker != null,
-      'PhysicalController.animateWith() called after PhysicalController.dispose()\n'
-      'PhysicalController methods should not be used after calling dispose.',
+      'PhysicsController.animateWith() called after PhysicsController.dispose()\n'
+      'PhysicsController methods should not be used after calling dispose.',
     );
-    stop();
+    final velocity = stop();
     _direction = _AnimationDirection.forward;
+    if (simulation is PhysicsSimulation) {
+      simulation = simulation.copyWith(
+        initialVelocity: simulation.initialVelocity + velocity,
+      );
+    }
     return _startSimulation(simulation);
   }
 
@@ -341,16 +376,20 @@ class PhysicsController extends Animation<double>
     return result;
   }
 
-  /// Stops running this animation.
-  void stop({bool canceled = true}) {
+  /// Stops running this animation and returns the current velocity of the
+  /// simulation.
+  double stop({bool canceled = true}) {
     assert(
       _ticker != null,
-      'PhysicalController.stop() called after PhysicalController.dispose()\n'
-      'PhysicalController methods should not be used after calling dispose.',
+      'PhysicsController.stop() called after PhysicsController.dispose()\n'
+      'PhysicsController methods should not be used after calling dispose.',
     );
+    final velocity = _simulation?.dx(
+        lastElapsedDuration!.inMicroseconds / Duration.microsecondsPerSecond);
     _simulation = null;
     _lastElapsedDuration = null;
     _ticker!.stop(canceled: canceled);
+    return velocity ?? 0.0;
   }
 
   /// Release the resources used by this object.
@@ -359,7 +398,7 @@ class PhysicsController extends Animation<double>
     assert(() {
       if (_ticker == null) {
         throw FlutterError.fromParts(<DiagnosticsNode>[
-          ErrorSummary('PhysicalController.dispose() called more than once.'),
+          ErrorSummary('PhysicsController.dispose() called more than once.'),
           ErrorDescription(
               'A given $runtimeType cannot be disposed more than once.\n'),
           DiagnosticsProperty<PhysicsController>(
@@ -390,7 +429,7 @@ class PhysicsController extends Animation<double>
 
   void _tick(Duration elapsed) {
     _lastElapsedDuration = elapsed;
-    final double elapsedInSeconds =
+    final elapsedInSeconds =
         elapsed.inMicroseconds.toDouble() / Duration.microsecondsPerSecond;
     assert(elapsedInSeconds >= 0.0);
     _value =
@@ -460,18 +499,21 @@ class PhysicsController extends Animation<double>
     assert(count == null || count > 0,
         'Count shall be greater than zero if not null');
 
-    stop();
+    final currentVelocity = stop();
 
-    return _startSimulation(_RepeatingSimulation(
-      _value,
-      min,
-      max,
-      reverse,
-      period,
-      physics,
-      _directionSetter,
-      count,
-    ));
+    return _startSimulation(
+      _RepeatingSimulation(
+        _value,
+        min,
+        max,
+        reverse,
+        period,
+        physics,
+        currentVelocity,
+        _directionSetter,
+        count,
+      ),
+    );
   }
 
   void _directionSetter(_AnimationDirection direction) {
@@ -547,26 +589,27 @@ class _RepeatingSimulation extends Simulation {
     this.reverse,
     Duration? period,
     Physics physics,
+    double currentVelocity,
     this.directionSetter,
     this.count,
   )   : assert(count == null || count > 0,
             'Count shall be greater than zero if not null'),
         assert(physics is PhysicsSimulation || period != null,
-            "Period must be provided if physics is not a [PhysicalSimulation].") {
+            "Period must be provided if physics is not a [PhysicsSimulation].") {
+    if (physics is PhysicsSimulation) {
+      _physics = physics.copyWith(
+        start: min,
+        end: max,
+        initialVelocity: currentVelocity,
+      );
+    } else {
+      _physics = physics;
+    }
     period ??= Duration(
         milliseconds: ((physics as PhysicsSimulation).duration * 1000).ceil());
     _periodInSeconds = period.inMicroseconds / Duration.microsecondsPerSecond;
     assert(_periodInSeconds > 0.0);
     assert(_initialT >= 0.0);
-    if (physics is PhysicsSimulation) {
-      _physics = physics.copyWith(
-        duration: period,
-        start: min,
-        end: max,
-      );
-    } else {
-      _physics = physics;
-    }
   }
 
   final double min;

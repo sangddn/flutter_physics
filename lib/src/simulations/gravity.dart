@@ -1,4 +1,4 @@
-part of 'physical_simulations.dart';
+part of 'physics_simulations.dart';
 
 /// A physics-based animation that simulates gravitational acceleration.
 ///
@@ -77,12 +77,16 @@ class Gravity extends PhysicsSimulation {
     double? durationScale,
     Duration? duration,
     Tolerance? tolerance,
+    double? initialVelocity,
   }) {
+    assert(initialVelocity == null ||
+        (duration == null && durationScale == null) ||
+        (start == null && end == null));
     return Gravity(
       gravity: gravity,
       start: start ?? this.start,
       end: end ?? this.end,
-      initialVelocity:
+      initialVelocity: initialVelocity ??
           _getEffectiveVelocity(start, end, duration, durationScale),
       tolerance: tolerance ?? _gravity.tolerance,
     );

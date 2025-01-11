@@ -11,7 +11,7 @@ part 'clamped.dart';
 part 'simulation_2d.dart';
 
 /// A type alias for the [Curve] interface to make it clear that users can pass
-/// in any Flutter's native [Curve] or [PhysicsSimulation] to the [PhysicalController].
+/// in any Flutter's native [Curve] or [PhysicsSimulation] to the [PhysicsController].
 typedef Physics = Curve;
 
 /// A base class for all physics simulations that also implement the [Curve]
@@ -45,7 +45,7 @@ abstract class PhysicsSimulation implements Simulation, Curve {
   @override
   set tolerance(Tolerance tolerance) {
     throw UnsupportedError(
-        '[PhysicalSimulation].tolerance is read-only. You\'re likely using a [PhysicalSimulation] within a ScrollPhysics, which is disallowed.');
+        '[PhysicsSimulation].tolerance is read-only. You\'re likely using a [PhysicsSimulation] within a ScrollPhysics, which is disallowed.');
   }
 
   @override
@@ -71,6 +71,9 @@ abstract class PhysicsSimulation implements Simulation, Curve {
   /// - [start] and [end] specify new position boundaries.
   /// - [duration] explicitly sets the simulation duration.
   /// - [durationScale] scales the current duration by a factor.
+  /// - [initialVelocity] sets the initial velocity of the simulation. Either
+  ///   this or ([duration] and [durationScale]) or ([start] and [end]) must be
+  ///   `null`.
   ///
   /// Returns a new instance of the simulation with the specified modifications.
   ///
@@ -88,6 +91,7 @@ abstract class PhysicsSimulation implements Simulation, Curve {
     double? end,
     Duration? duration,
     double? durationScale,
+    double? initialVelocity,
   });
 
   /// Calculates the initial velocity needed for the simulation to move from [start]
@@ -130,5 +134,5 @@ abstract class PhysicsSimulation implements Simulation, Curve {
 
   @override
   String toString() =>
-      '${objectRuntimeType(this, 'PhysicalSimulation')}(start: $start, end: $end, initialVelocity: $initialVelocity, duration: $duration)';
+      '${objectRuntimeType(this, 'PhysicsSimulation')}(start: $start, end: $end, initialVelocity: $initialVelocity, duration: $duration)';
 }

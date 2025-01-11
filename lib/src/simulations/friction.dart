@@ -1,4 +1,4 @@
-part of 'physical_simulations.dart';
+part of 'physics_simulations.dart';
 
 /// A physics-based animation that simulates motion with friction/drag.
 ///
@@ -111,11 +111,15 @@ class Friction extends PhysicsSimulation {
     double? end,
     double? durationScale,
     Duration? duration,
+    double? initialVelocity,
   }) {
+    assert(initialVelocity == null ||
+        (duration == null && durationScale == null) ||
+        (start == null && end == null));
     return Friction(
       start: start ?? this.start,
       end: end ?? this.end,
-      initialVelocity:
+      initialVelocity: initialVelocity ??
           _getEffectiveVelocity(start, end, duration, durationScale),
       endVelocity: endVelocity,
       tolerance: tolerance ?? _friction.tolerance,

@@ -1,15 +1,15 @@
-part of 'physical_simulations.dart';
+part of 'physics_simulations.dart';
 
 /// A [PhysicsSimulation] that clamps the given simulation.
 ///
 /// Modified version of Flutter's [ClampedSimulation] that implements the
 /// [PhysicsSimulation] interface.
-class ClampedPhysicalSimulation extends PhysicsSimulation {
-  /// Creates a [ClampedPhysicalSimulation] that clamps the given simulation.
+class ClampedPhysicsSimulation extends PhysicsSimulation {
+  /// Creates a [ClampedPhysicsSimulation] that clamps the given simulation.
   ///
   /// The named arguments specify the ranges for the clamping behavior, as
   /// applied to [x] and [dx].
-  const ClampedPhysicalSimulation(
+  const ClampedPhysicsSimulation(
     this.simulation, {
     this.xMin = double.negativeInfinity,
     this.xMax = double.infinity,
@@ -54,14 +54,16 @@ class ClampedPhysicalSimulation extends PhysicsSimulation {
     double? end,
     double? durationScale,
     Duration? duration,
+    double? initialVelocity,
   }) =>
-      ClampedPhysicalSimulation(
+      ClampedPhysicsSimulation(
         simulation.copyWith(
           tolerance: tolerance,
           start: start,
           end: end,
           durationScale: durationScale,
           duration: duration,
+          initialVelocity: initialVelocity,
         ),
         xMin: xMin,
         xMax: xMax,
