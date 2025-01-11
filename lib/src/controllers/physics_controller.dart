@@ -11,7 +11,7 @@ part 'physics_controller_2d.dart';
 /// A controller for physical animations.
 ///
 /// This is similar to [AnimationController], but it has special handling for
-/// [PhysicalSimulation]s - allowing them to be used directly as curves while
+/// [PhysicsSimulation]s - allowing them to be used directly as curves while
 /// maintaining their physical simulation properties.
 class PhysicsController extends Animation<double>
     with
@@ -40,7 +40,7 @@ class PhysicsController extends Animation<double>
   })  : assert(upperBound >= lowerBound),
         assert(duration != null ||
             reverseDuration != null ||
-            defaultPhysics is PhysicalSimulation?),
+            defaultPhysics is PhysicsSimulation?),
         _direction = _AnimationDirection.forward,
         defaultPhysics = defaultPhysics ?? Spring.elegant {
     _ticker = vsync.createTicker(_tick);
@@ -53,7 +53,7 @@ class PhysicsController extends Animation<double>
   /// * [value] is the initial value of the animation.
   ///
   /// * [duration] is the length of time this animation should last. Required if
-  ///   [defaultPhysics] is not a [PhysicalSimulation].
+  ///   [defaultPhysics] is not a [PhysicsSimulation].
   ///
   /// * [debugLabel] is a string to help identify this animation during
   ///   debugging (used by [toString]).
@@ -72,7 +72,7 @@ class PhysicsController extends Animation<double>
         upperBound = double.infinity,
         assert(duration != null ||
             reverseDuration != null ||
-            defaultPhysics is PhysicalSimulation?),
+            defaultPhysics is PhysicsSimulation?),
         _direction = _AnimationDirection.forward,
         defaultPhysics = defaultPhysics ?? Spring.elegant {
     _ticker = vsync.createTicker(_tick);
@@ -259,13 +259,13 @@ class PhysicsController extends Animation<double>
 
     assert(!isAnimating);
 
-    if (physics is PhysicalSimulation) {
+    if (physics is PhysicsSimulation) {
       return _startSimulation(physics.copyWith(
         duration: simulationDuration,
         tolerance: tolerance,
         start: _value,
         end: target,
-        scale: scale,
+        durationScale: scale,
       ));
     }
 
@@ -507,7 +507,7 @@ class _InterpolationSimulation extends Simulation {
   _InterpolationSimulation(
       this._begin, this._end, Duration duration, this._curve, double scale)
       : assert(duration.inMicroseconds > 0),
-        assert(_curve is! PhysicalSimulation),
+        assert(_curve is! PhysicsSimulation),
         _durationInSeconds =
             (duration.inMicroseconds * scale) / Duration.microsecondsPerSecond;
 
@@ -551,14 +551,14 @@ class _RepeatingSimulation extends Simulation {
     this.count,
   )   : assert(count == null || count > 0,
             'Count shall be greater than zero if not null'),
-        assert(physics is PhysicalSimulation || period != null,
+        assert(physics is PhysicsSimulation || period != null,
             "Period must be provided if physics is not a [PhysicalSimulation].") {
     period ??= Duration(
-        milliseconds: ((physics as PhysicalSimulation).duration * 1000).ceil());
+        milliseconds: ((physics as PhysicsSimulation).duration * 1000).ceil());
     _periodInSeconds = period.inMicroseconds / Duration.microsecondsPerSecond;
     assert(_periodInSeconds > 0.0);
     assert(_initialT >= 0.0);
-    if (physics is PhysicalSimulation) {
+    if (physics is PhysicsSimulation) {
       _physics = physics.copyWith(
         duration: period,
         start: min,
@@ -595,8 +595,8 @@ class _RepeatingSimulation extends Simulation {
     final bool isPlayingReverse =
         reverse && (totalTimeInSeconds ~/ _periodInSeconds).isOdd;
 
-    final fn = _physics is PhysicalSimulation
-        ? (_physics as PhysicalSimulation).x
+    final fn = _physics is PhysicsSimulation
+        ? (_physics as PhysicsSimulation).x
         : _physics.transform;
 
     if (isPlayingReverse) {
@@ -610,8 +610,8 @@ class _RepeatingSimulation extends Simulation {
 
   @override
   double dx(double timeInSeconds) {
-    if (_physics is PhysicalSimulation) {
-      return (_physics as PhysicalSimulation).dx(timeInSeconds);
+    if (_physics is PhysicsSimulation) {
+      return (_physics as PhysicsSimulation).dx(timeInSeconds);
     }
     final double epsilon = tolerance.time;
     return (x(timeInSeconds + epsilon) - x(timeInSeconds - epsilon)) /

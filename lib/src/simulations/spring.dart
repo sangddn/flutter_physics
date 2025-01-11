@@ -42,7 +42,7 @@ part of 'physical_simulations.dart';
 /// The simulation continues until the spring settles at its rest position
 /// (within the specified [tolerance]). The settling time and oscillation pattern
 /// depend on the spring parameters.
-class Spring extends PhysicalSimulation {
+class Spring extends PhysicsSimulation {
   Spring({
     required this.description,
     super.start = 0.0,
@@ -195,25 +195,30 @@ class Spring extends PhysicalSimulation {
     Tolerance? tolerance,
     double? start,
     double? end,
-    double? scale,
+    double? durationScale,
     Duration? duration,
   }) {
     return Spring(
       description: description,
       start: start ?? this.start,
       end: end ?? this.end,
-      initialVelocity: _getEffectiveVelocity(start, end, duration, scale),
+      initialVelocity:
+          _getEffectiveVelocity(start, end, duration, durationScale),
       tolerance: tolerance ?? this.tolerance,
     );
   }
 
   @override
-  double _solveInitialVelocity(double start, double end, double duration) =>
+  double solveInitialVelocity(
+    double start,
+    double end,
+    double durationInSeconds,
+  ) =>
       _solveSpringVelocity(
         description: description,
         startPosition: start,
         endPosition: end,
-        time: duration,
+        time: durationInSeconds,
       );
 }
 

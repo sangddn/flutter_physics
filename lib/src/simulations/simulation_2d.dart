@@ -7,14 +7,14 @@ class Simulation2D extends Curve2D {
   /// Creates a 2D simulation using separate simulations for x and y coordinates
   Simulation2D(this._x, this._y);
 
-  final PhysicalSimulation _x, _y;
+  final PhysicsSimulation _x, _y;
 
   Offset x(double time) => Offset(_x.x(time), _y.x(time));
   Offset dx(double time) => Offset(_x.dx(time), _y.dx(time));
   bool isDone(double time) => _x.isDone(time) && _y.isDone(time);
 
-  PhysicalSimulation get xPhysics => _x;
-  PhysicalSimulation get yPhysics => _y;
+  PhysicsSimulation get xPhysics => _x;
+  PhysicsSimulation get yPhysics => _y;
 
   @override
   Offset transform(double t) => Offset(_x.transform(t), _y.transform(t));

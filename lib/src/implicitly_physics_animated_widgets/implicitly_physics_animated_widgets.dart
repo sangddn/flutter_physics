@@ -3,8 +3,8 @@
 // It also provides all out-of-the-box variants like Container, Padding, Align, etc.,
 // but renamed as AContainer, APadding, AAlign, etc., to avoid conflicts with Flutter.
 //
-// The general pattern is similar: each widget is an ImplicitlyPhysicallyAnimatedWidget
-// subclass, and each state is a PhysicallyAnimatedWidgetBaseState that uses a
+// The general pattern is similar: each widget is an ImplicitlyPhysicsAnimatedWidget
+// subclass, and each state is a PhysicsAnimatedWidgetBaseState that uses a
 // PhysicsController to drive changes.
 
 import 'package:flutter/foundation.dart';
@@ -12,15 +12,15 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_physics/flutter_physics.dart';
 
 /// A base class resembling `ImplicitlyAnimatedWidget` driven by a [PhysicsController].
-/// {@macro ImplicitlyPhysicallyAnimatedWidget}
-abstract class ImplicitlyPhysicallyAnimatedWidget extends StatefulWidget {
-  /// Creates a new [ImplicitlyPhysicallyAnimatedWidget].
+/// {@macro ImplicitlyPhysicsAnimatedWidget}
+abstract class ImplicitlyPhysicsAnimatedWidget extends StatefulWidget {
+  /// Creates a new [ImplicitlyPhysicsAnimatedWidget].
   ///
-  /// {@template ImplicitlyPhysicallyAnimatedWidget}
+  /// {@template ImplicitlyPhysicsAnimatedWidget}
   /// * [duration] is the length of time this "implicit" animation should last,
   ///   unless overridden. This is used as the default for the [PhysicsController]'s
-  ///   forward or reverse calls. For best results, if physics is [PhysicalSimulation]
-  ///   consider leaving this null. For non-[PhysicalSimulation] physics, such
+  ///   forward or reverse calls. For best results, if physics is [PhysicsSimulation]
+  ///   consider leaving this null. For non-[PhysicsSimulation] physics, such
   ///   as Flutter's built-in [Curve], this is required.
   ///
   /// * [physics] is the [Physics] to use for transitions. Defaults to
@@ -29,15 +29,15 @@ abstract class ImplicitlyPhysicallyAnimatedWidget extends StatefulWidget {
   /// * [onEnd] is a callback that is called when the animation completes.
   ///
   /// See also:
-  /// - [PhysicallyAnimatedWidgetState], which is the state class for this widget.
+  /// - [PhysicsAnimatedWidgetState], which is the state class for this widget.
   /// - [PhysicsController], which is the controller class for this widget.
   /// {@endtemplate}
-  const ImplicitlyPhysicallyAnimatedWidget({
+  const ImplicitlyPhysicsAnimatedWidget({
     super.key,
     this.duration,
     this.physics,
     this.onEnd,
-  }) : assert(duration != null || physics is PhysicalSimulation?);
+  }) : assert(duration != null || physics is PhysicsSimulation?);
 
   /// The length of time this "implicit" animation should last, unless overridden.
   /// This is used as the default for the [PhysicsController]'s forward or reverse calls.
@@ -70,8 +70,8 @@ typedef TweenConstructor<T extends Object> = Tween<T> Function(T value);
 /// whenever new values come in from the updated widget. Then rely on the
 /// physics-driven controller to update [animation] over time, and `setState` is
 /// called automatically whenever the physics ticks.
-abstract class PhysicallyAnimatedWidgetState<
-        T extends ImplicitlyPhysicallyAnimatedWidget> extends State<T>
+abstract class PhysicsAnimatedWidgetState<
+        T extends ImplicitlyPhysicsAnimatedWidget> extends State<T>
     with SingleTickerProviderStateMixin<T> {
   late PhysicsController _controller;
 
@@ -188,7 +188,7 @@ abstract class PhysicallyAnimatedWidgetState<
 
 /// A mixin that rebuilds the state on each tick of the physics controller.
 /// This is useful for widgets that need to rebuild on each tick, like [AContainer].
-mixin _RebuildOnTick<T extends ImplicitlyPhysicallyAnimatedWidget> on State<T> {
+mixin _RebuildOnTick<T extends ImplicitlyPhysicsAnimatedWidget> on State<T> {
   PhysicsController get _controller;
 
   @override
@@ -203,7 +203,7 @@ mixin _RebuildOnTick<T extends ImplicitlyPhysicallyAnimatedWidget> on State<T> {
 }
 
 /// Physics-based equivalent of [AnimatedContainer], renamed to [AContainer].
-class AContainer extends ImplicitlyPhysicallyAnimatedWidget {
+class AContainer extends ImplicitlyPhysicsAnimatedWidget {
   const AContainer({
     super.key,
     super.duration,
@@ -236,7 +236,7 @@ class AContainer extends ImplicitlyPhysicallyAnimatedWidget {
   State<AContainer> createState() => _AContainerState();
 }
 
-class _AContainerState extends PhysicallyAnimatedWidgetState<AContainer>
+class _AContainerState extends PhysicsAnimatedWidgetState<AContainer>
     with _RebuildOnTick {
   DecorationTween? _decoration;
   DecorationTween? _foregroundDecoration;
@@ -341,7 +341,7 @@ class _AContainerState extends PhysicallyAnimatedWidgetState<AContainer>
 }
 
 /// Physics-based equivalent of [AnimatedPadding], renamed to [APadding].
-class APadding extends ImplicitlyPhysicallyAnimatedWidget {
+class APadding extends ImplicitlyPhysicsAnimatedWidget {
   const APadding({
     super.key,
     required this.padding,
@@ -358,7 +358,7 @@ class APadding extends ImplicitlyPhysicallyAnimatedWidget {
   State<APadding> createState() => _APaddingState();
 }
 
-class _APaddingState extends PhysicallyAnimatedWidgetState<APadding>
+class _APaddingState extends PhysicsAnimatedWidgetState<APadding>
     with _RebuildOnTick {
   EdgeInsetsGeometryTween? _padding;
 
@@ -438,7 +438,7 @@ class BetterPadding extends StatelessWidget {
 }
 
 /// Physics-based equivalent of [AnimatedAlign], renamed to [AAlign].
-class AAlign extends ImplicitlyPhysicallyAnimatedWidget {
+class AAlign extends ImplicitlyPhysicsAnimatedWidget {
   const AAlign({
     super.key,
     required this.alignment,
@@ -459,7 +459,7 @@ class AAlign extends ImplicitlyPhysicallyAnimatedWidget {
   State<AAlign> createState() => _AAlignState();
 }
 
-class _AAlignState extends PhysicallyAnimatedWidgetState<AAlign>
+class _AAlignState extends PhysicsAnimatedWidgetState<AAlign>
     with _RebuildOnTick {
   AlignmentGeometryTween? _alignment;
   Tween<double>? _heightFactor;
@@ -510,7 +510,7 @@ class _AAlignState extends PhysicallyAnimatedWidgetState<AAlign>
 
 /// Physics-based equivalent of [AnimatedPositioned], renamed to [APositioned].
 /// Only works if it's the child of a [Stack].
-class APositioned extends ImplicitlyPhysicallyAnimatedWidget {
+class APositioned extends ImplicitlyPhysicsAnimatedWidget {
   const APositioned({
     super.key,
     super.duration,
@@ -537,7 +537,7 @@ class APositioned extends ImplicitlyPhysicallyAnimatedWidget {
   State<APositioned> createState() => _APositionedState();
 }
 
-class _APositionedState extends PhysicallyAnimatedWidgetState<APositioned>
+class _APositionedState extends PhysicsAnimatedWidgetState<APositioned>
     with _RebuildOnTick {
   Tween<double>? _left;
   Tween<double>? _top;
@@ -579,7 +579,7 @@ class _APositionedState extends PhysicallyAnimatedWidgetState<APositioned>
 
 /// Physics-based equivalent of [AnimatedPositionedDirectional], renamed to [APositionedDirectional].
 /// Only works if it's the child of a [Stack].
-class APositionedDirectional extends ImplicitlyPhysicallyAnimatedWidget {
+class APositionedDirectional extends ImplicitlyPhysicsAnimatedWidget {
   const APositionedDirectional({
     super.key,
     super.duration,
@@ -607,7 +607,7 @@ class APositionedDirectional extends ImplicitlyPhysicallyAnimatedWidget {
 }
 
 class _APositionedDirectionalState
-    extends PhysicallyAnimatedWidgetState<APositionedDirectional>
+    extends PhysicsAnimatedWidgetState<APositionedDirectional>
     with _RebuildOnTick {
   Tween<double>? _start;
   Tween<double>? _top;
@@ -655,7 +655,7 @@ class _APositionedDirectionalState
 ///
 /// Animates its [scale] property using physics-based animations.
 /// The [alignment] and [filterQuality] properties are not animated.
-class AScale extends ImplicitlyPhysicallyAnimatedWidget {
+class AScale extends ImplicitlyPhysicsAnimatedWidget {
   const AScale({
     super.key,
     required this.scale,
@@ -684,7 +684,7 @@ class AScale extends ImplicitlyPhysicallyAnimatedWidget {
   }
 }
 
-class _AScaleState extends PhysicallyAnimatedWidgetState<AScale> {
+class _AScaleState extends PhysicsAnimatedWidgetState<AScale> {
   Tween<double>? _scale;
   late Animation<double> _scaleAnimation;
 
@@ -721,7 +721,7 @@ class _AScaleState extends PhysicallyAnimatedWidgetState<AScale> {
 ///
 /// Animates its [turns] property using physics-based animations.
 /// The [alignment] and [filterQuality] properties are not animated.
-class ARotation extends ImplicitlyPhysicallyAnimatedWidget {
+class ARotation extends ImplicitlyPhysicsAnimatedWidget {
   const ARotation({
     super.key,
     required this.turns,
@@ -750,7 +750,7 @@ class ARotation extends ImplicitlyPhysicallyAnimatedWidget {
   }
 }
 
-class _ARotationState extends PhysicallyAnimatedWidgetState<ARotation> {
+class _ARotationState extends PhysicsAnimatedWidgetState<ARotation> {
   Tween<double>? _turns;
   late Animation<double> _turnsAnimation;
 
@@ -787,7 +787,7 @@ class _ARotationState extends PhysicallyAnimatedWidgetState<ARotation> {
 ///
 /// Animates its [offset] property using physics-based animations to slide
 /// the child widget relative to its normal position.
-class ASlide extends ImplicitlyPhysicallyAnimatedWidget {
+class ASlide extends ImplicitlyPhysicsAnimatedWidget {
   const ASlide({
     super.key,
     required this.offset,
@@ -810,7 +810,7 @@ class ASlide extends ImplicitlyPhysicallyAnimatedWidget {
   }
 }
 
-class _ASlideState extends PhysicallyAnimatedWidgetState<ASlide> {
+class _ASlideState extends PhysicsAnimatedWidgetState<ASlide> {
   Tween<Offset>? _offset;
   late Animation<Offset> _offsetAnimation;
 
@@ -845,7 +845,7 @@ class _ASlideState extends PhysicallyAnimatedWidgetState<ASlide> {
 ///
 /// Animates its [opacity] property using physics-based animations.
 /// The [alwaysIncludeSemantics] property is not animated.
-class AOpacity extends ImplicitlyPhysicallyAnimatedWidget {
+class AOpacity extends ImplicitlyPhysicsAnimatedWidget {
   const AOpacity({
     super.key,
     super.duration,
@@ -872,7 +872,7 @@ class AOpacity extends ImplicitlyPhysicallyAnimatedWidget {
   }
 }
 
-class _AOpacityState extends PhysicallyAnimatedWidgetState<AOpacity> {
+class _AOpacityState extends PhysicsAnimatedWidgetState<AOpacity> {
   Tween<double>? _opacity;
   late Animation<double> _opacityAnimation;
 
@@ -909,7 +909,7 @@ class _AOpacityState extends PhysicallyAnimatedWidgetState<AOpacity> {
 ///
 /// Animates its [opacity] property using physics-based animations.
 /// The [alwaysIncludeSemantics] property is not animated.
-class ASliverOpacity extends ImplicitlyPhysicallyAnimatedWidget {
+class ASliverOpacity extends ImplicitlyPhysicsAnimatedWidget {
   const ASliverOpacity({
     super.key,
     super.duration,
@@ -937,7 +937,7 @@ class ASliverOpacity extends ImplicitlyPhysicallyAnimatedWidget {
 }
 
 class _ASliverOpacityState
-    extends PhysicallyAnimatedWidgetState<ASliverOpacity> {
+    extends PhysicsAnimatedWidgetState<ASliverOpacity> {
   Tween<double>? _opacity;
 
   @override
@@ -968,7 +968,7 @@ class _ASliverOpacityState
 ///
 /// Animates changes in [style] using physics-based animations.
 /// Other properties like [textAlign], [softWrap], [overflow], etc. are not animated.
-class ADefaultTextStyle extends ImplicitlyPhysicallyAnimatedWidget {
+class ADefaultTextStyle extends ImplicitlyPhysicsAnimatedWidget {
   const ADefaultTextStyle({
     super.key,
     required this.style,
@@ -1017,7 +1017,7 @@ class ADefaultTextStyle extends ImplicitlyPhysicallyAnimatedWidget {
 }
 
 class _ADefaultTextStyleState
-    extends PhysicallyAnimatedWidgetState<ADefaultTextStyle>
+    extends PhysicsAnimatedWidgetState<ADefaultTextStyle>
     with _RebuildOnTick {
   TextStyleTween? _style;
 
@@ -1055,7 +1055,7 @@ class _ADefaultTextStyleState
 /// Animates [elevation], [color], and [shadowColor] using physics-based animations.
 /// The [color] and [shadowColor] animations can be disabled using [animateColor] and
 /// [animateShadowColor] respectively.
-class APhysicalModel extends ImplicitlyPhysicallyAnimatedWidget {
+class APhysicalModel extends ImplicitlyPhysicsAnimatedWidget {
   const APhysicalModel({
     super.key,
     super.duration,
@@ -1106,7 +1106,7 @@ class APhysicalModel extends ImplicitlyPhysicallyAnimatedWidget {
   }
 }
 
-class _APhysicalModelState extends PhysicallyAnimatedWidgetState<APhysicalModel>
+class _APhysicalModelState extends PhysicsAnimatedWidgetState<APhysicalModel>
     with _RebuildOnTick {
   BorderRadiusTween? _borderRadius;
   Tween<double>? _elevation;
@@ -1162,7 +1162,7 @@ class _APhysicalModelState extends PhysicallyAnimatedWidgetState<APhysicalModel>
 ///
 /// Animates [widthFactor] and [heightFactor] using physics-based animations.
 /// The [alignment] property is not animated.
-class AFractionallySizedBox extends ImplicitlyPhysicallyAnimatedWidget {
+class AFractionallySizedBox extends ImplicitlyPhysicsAnimatedWidget {
   const AFractionallySizedBox({
     super.key,
     super.duration,
@@ -1193,7 +1193,7 @@ class AFractionallySizedBox extends ImplicitlyPhysicallyAnimatedWidget {
 }
 
 class _AFractionallySizedBoxState
-    extends PhysicallyAnimatedWidgetState<AFractionallySizedBox>
+    extends PhysicsAnimatedWidgetState<AFractionallySizedBox>
     with _RebuildOnTick {
   AlignmentGeometryTween? _alignment;
   Tween<double>? _widthFactor;

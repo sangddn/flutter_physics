@@ -166,12 +166,12 @@ class PhysicsController2D extends Animation<Offset>
         physics.xPhysics.copyWith(
           start: _value.dx,
           end: target.dx,
-          scale: scale,
+          durationScale: scale,
         ),
         physics.yPhysics.copyWith(
           start: _value.dy,
           end: target.dy,
-          scale: scale,
+          durationScale: scale,
         ));
   }
 

@@ -7,16 +7,16 @@ part of 'physical_simulations.dart';
 ///
 /// The friction simulation applies a drag force that's proportional to velocity,
 /// causing the motion to gradually slow down. The object starts at [start] position
-/// with an [initialVelocity] and is affected by a [friction] coefficient.
+/// with an [initialVelocity] and is affected by a [drag] coefficient.
 ///
-/// The [friction] coefficient determines how quickly the motion slows down:
+/// The [drag] coefficient determines how quickly the motion slows down:
 /// - Higher values (> 1.0) create more drag and faster deceleration
 /// - Lower values (< 1.0) create less drag and slower deceleration
 ///
 /// Example usage:
 /// ```dart
-/// final frictionAnimation = Friction(
-///   friction: 0.5,   // friction coefficient
+/// final frictionAnimation = Friction.withDrag(
+///   drag: 0.5,   // drag coefficient
 ///   start: 0.0,      // starting position
 ///   end: 100.0,      // ending position
 ///   initialVelocity: 1000.0,  // initial velocity (pixels per second)
@@ -38,7 +38,7 @@ part of 'physical_simulations.dart';
 /// (within the specified [tolerance]). Note that unlike spring or gravity
 /// simulations, a friction simulation might not reach exactly the target
 /// position, as it primarily focuses on gradually reducing velocity.
-class Friction extends PhysicalSimulation {
+class Friction extends PhysicsSimulation {
   Friction({
     required super.start,
     required super.end,
@@ -69,14 +69,17 @@ class Friction extends PhysicalSimulation {
           tolerance: tolerance,
         ) {
     final dragLog = math.log(drag);
-    duration = _newtonsMethod(
-        initialGuess: 0,
-        target: 0,
-        f: dx,
-        df: (double time) =>
-            (initialVelocity * math.pow(drag, time) * dragLog) -
-            constantDeceleration,
-        iterations: 10);
+    var estimatedDuration = double.infinity;
+    estimatedDuration = _newtonsMethod(
+      initialGuess: 0,
+      target: 0,
+      f: dx,
+      df: (double time) =>
+          (initialVelocity * math.pow(drag, time) * dragLog) -
+          constantDeceleration,
+      iterations: 10,
+    );
+    duration = estimatedDuration;
     end = _friction.x(duration);
     endVelocity = _solveEndVelocity(initialVelocity, drag, duration);
   }
@@ -86,7 +89,7 @@ class Friction extends PhysicalSimulation {
   late final double endVelocity;
 
   @override
-  double duration = double.infinity;
+  late final double duration;
 
   @override
   // ignore: overridden_fields
@@ -106,20 +109,25 @@ class Friction extends PhysicalSimulation {
     Tolerance? tolerance,
     double? start,
     double? end,
-    double? scale,
+    double? durationScale,
     Duration? duration,
   }) {
     return Friction(
       start: start ?? this.start,
       end: end ?? this.end,
-      initialVelocity: _getEffectiveVelocity(start, end, duration, scale),
+      initialVelocity:
+          _getEffectiveVelocity(start, end, duration, durationScale),
       endVelocity: endVelocity,
       tolerance: tolerance ?? _friction.tolerance,
     );
   }
 
   @override
-  double _solveInitialVelocity(double start, double end, double duration) {
+  double solveInitialVelocity(
+    double start,
+    double end,
+    double durationInSeconds,
+  ) {
     // For a friction simulation with drag coefficient 'drag',
     // x(t) = v0/k * (1 - e^(-kt)) + x0
     // where k is the drag coefficient
@@ -127,7 +135,7 @@ class Friction extends PhysicalSimulation {
     // v0 = (x - x0) * k / (1 - e^(-kt))
 
     final k = math.log(drag);
-    final denominator = 1 - math.exp(-k * duration);
+    final denominator = 1 - math.exp(-k * durationInSeconds);
 
     if (denominator.abs() < 1e-10) {
       return 0.0;

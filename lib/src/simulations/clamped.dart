@@ -1,15 +1,15 @@
 part of 'physical_simulations.dart';
 
-/// A [PhysicalSimulation] that clamps the given simulation.
+/// A [PhysicsSimulation] that clamps the given simulation.
 ///
 /// Modified version of Flutter's [ClampedSimulation] that implements the
-/// [PhysicalSimulation] interface.
-class ClampedPhysicalSimulation extends PhysicalSimulation {
+/// [PhysicsSimulation] interface.
+class ClampedPhysicalSimulation extends PhysicsSimulation {
   /// Creates a [ClampedPhysicalSimulation] that clamps the given simulation.
   ///
   /// The named arguments specify the ranges for the clamping behavior, as
   /// applied to [x] and [dx].
-  ClampedPhysicalSimulation(
+  const ClampedPhysicalSimulation(
     this.simulation, {
     this.xMin = double.negativeInfinity,
     this.xMax = double.infinity,
@@ -20,7 +20,7 @@ class ClampedPhysicalSimulation extends PhysicalSimulation {
 
   /// The simulation being clamped. Calls to [x], [dx], and [isDone] are
   /// forwarded to the simulation.
-  final PhysicalSimulation simulation;
+  final PhysicsSimulation simulation;
 
   /// The minimum to apply to [x].
   final double xMin;
@@ -48,11 +48,11 @@ class ClampedPhysicalSimulation extends PhysicalSimulation {
       '${objectRuntimeType(this, 'ClampedSimulation')}(simulation: $simulation, x: ${xMin.toStringAsFixed(1)}..${xMax.toStringAsFixed(1)}, dx: ${dxMin.toStringAsFixed(1)}..${dxMax.toStringAsFixed(1)})';
 
   @override
-  PhysicalSimulation copyWith({
+  PhysicsSimulation copyWith({
     Tolerance? tolerance,
     double? start,
     double? end,
-    double? scale,
+    double? durationScale,
     Duration? duration,
   }) =>
       ClampedPhysicalSimulation(
@@ -60,7 +60,7 @@ class ClampedPhysicalSimulation extends PhysicalSimulation {
           tolerance: tolerance,
           start: start,
           end: end,
-          scale: scale,
+          durationScale: durationScale,
           duration: duration,
         ),
         xMin: xMin,
@@ -73,6 +73,10 @@ class ClampedPhysicalSimulation extends PhysicalSimulation {
   double get duration => simulation.duration;
 
   @override
-  double _solveInitialVelocity(double start, double end, double duration) =>
-      simulation._solveInitialVelocity(start, end, duration);
+  double solveInitialVelocity(
+    double start,
+    double end,
+    double durationInSeconds,
+  ) =>
+      simulation.solveInitialVelocity(start, end, durationInSeconds);
 }

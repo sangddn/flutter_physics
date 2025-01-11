@@ -32,7 +32,7 @@ part of 'physical_simulations.dart';
 ///
 /// The simulation continues until the object reaches its target position and velocity
 /// approaches zero (within the specified [tolerance]).
-class Gravity extends PhysicalSimulation {
+class Gravity extends PhysicsSimulation {
   Gravity({
     required this.gravity,
     required super.start,
@@ -74,7 +74,7 @@ class Gravity extends PhysicalSimulation {
   Gravity copyWith({
     double? start,
     double? end,
-    double? scale,
+    double? durationScale,
     Duration? duration,
     Tolerance? tolerance,
   }) {
@@ -82,17 +82,23 @@ class Gravity extends PhysicalSimulation {
       gravity: gravity,
       start: start ?? this.start,
       end: end ?? this.end,
-      initialVelocity: _getEffectiveVelocity(start, end, duration, scale),
+      initialVelocity:
+          _getEffectiveVelocity(start, end, duration, durationScale),
       tolerance: tolerance ?? _gravity.tolerance,
     );
   }
 
   @override
-  double _solveInitialVelocity(double start, double end, double duration) {
+  double solveInitialVelocity(
+    double start,
+    double end,
+    double durationInSeconds,
+  ) {
     final d = end - start;
-    if (duration == 0) return double.infinity;
-    if (gravity == 0) return d / duration;
-    return (d - 0.5 * gravity * duration * duration) / duration;
+    if (durationInSeconds == 0) return double.infinity;
+    if (gravity == 0) return d / durationInSeconds;
+    return (d - 0.5 * gravity * durationInSeconds * durationInSeconds) /
+        durationInSeconds;
   }
 }
 
