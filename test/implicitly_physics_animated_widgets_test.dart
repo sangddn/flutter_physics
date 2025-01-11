@@ -1,7 +1,8 @@
-import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_physics/flutter_physics.dart';
+
+import 'matchers/color_matcher.dart';
 
 void main() {
   // ---------------------------------------------------------------------------
@@ -19,8 +20,8 @@ void main() {
 
     // Initial color should be red
     var container = tester.widget<Container>(find.byType(Container));
-    expect((container.decoration as BoxDecoration).color!.value,
-        equals(Colors.red.value));
+    expect((container.decoration as BoxDecoration).color,
+        matchesColor(Colors.red));
 
     // Pump new widget with different decoration color
     await tester.pumpWidget(
@@ -41,8 +42,8 @@ void main() {
     // Complete the animation
     await tester.pumpAndSettle(const Duration(milliseconds: 300));
     container = tester.widget<Container>(find.byType(Container));
-    expect((container.decoration as BoxDecoration).color!.value,
-        equals(Colors.blue.value));
+    expect((container.decoration as BoxDecoration).color,
+        matchesColor(Colors.blue));
   });
 
   // ---------------------------------------------------------------------------
@@ -381,7 +382,8 @@ void main() {
     );
 
     await tester.pumpAndSettle(const Duration(milliseconds: 400));
-    final opacityWidget = tester.widget<FadeTransition>(find.byType(FadeTransition));
+    final opacityWidget =
+        tester.widget<FadeTransition>(find.byType(FadeTransition));
     expect(opacityWidget.opacity.value, closeTo(0.4, 0.01));
   });
 
@@ -456,7 +458,7 @@ void main() {
     );
 
     var defaultTextStyle = tester.widget<DefaultTextStyle>(find.byKey(key));
-    expect(defaultTextStyle.style.color?.value, equals(Colors.black.value));
+    expect(defaultTextStyle.style.color, matchesColor(Colors.black));
 
     // Animate to red
     await tester.pumpWidget(
@@ -471,13 +473,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     defaultTextStyle = tester.widget<DefaultTextStyle>(find.byKey(key));
     // The color should be partially between black and red
-    expect(defaultTextStyle.style.color?.value, isNot(Colors.black.value));
-    expect(defaultTextStyle.style.color?.value, isNot(Colors.red.value));
+    expect(defaultTextStyle.style.color, notMatchesColor(Colors.black));
+    expect(defaultTextStyle.style.color, notMatchesColor(Colors.red));
 
     // Finish
     await tester.pumpAndSettle(const Duration(milliseconds: 300));
     defaultTextStyle = tester.widget<DefaultTextStyle>(find.byKey(key));
-    expect(defaultTextStyle.style.color!.value, equals(Colors.red.value));
+    expect(defaultTextStyle.style.color, matchesColor(Colors.red));
   });
 
   // ---------------------------------------------------------------------------
@@ -515,14 +517,14 @@ void main() {
     physicalModel = tester.widget<PhysicalModel>(find.byType(PhysicalModel));
     expect(physicalModel.elevation, greaterThan(2.0));
     expect(physicalModel.elevation, lessThan(10.0));
-    expect(physicalModel.color.value, isNot(Colors.black.value));
-    expect(physicalModel.color.value, isNot(Colors.blue.value));
+    expect(physicalModel.color, notMatchesColor(Colors.black));
+    expect(physicalModel.color, notMatchesColor(Colors.blue));
 
     // Finish
     await tester.pumpAndSettle(const Duration(milliseconds: 300));
     physicalModel = tester.widget<PhysicalModel>(find.byType(PhysicalModel));
     expect(physicalModel.elevation, closeTo(10.0, 0.1));
-    expect(physicalModel.color.value, equals(Colors.blue.value));
+    expect(physicalModel.color, matchesColor(Colors.blue));
   });
 
   // ---------------------------------------------------------------------------
