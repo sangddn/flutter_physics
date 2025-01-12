@@ -163,15 +163,17 @@ class _PhysicsBuilder2DState extends State<PhysicsBuilder2D>
     with SingleTickerProviderStateMixin {
   late final _controller = PhysicsController2D(
     vsync: this,
-    defaultPhysics: Simulation2D(
-      widget.xPhysics ?? widget.yPhysics ?? Spring.elegant,
-      widget.yPhysics ?? widget.xPhysics ?? Spring.elegant,
-    ),
+    value: widget.value,
     duration: widget.duration,
     reverseDuration: widget.reverseDuration,
     lowerBound: widget.lowerBound,
     upperBound: widget.upperBound,
   );
+
+  Simulation2D _getPhysics() => Simulation2D(
+        widget.xPhysics ?? widget.yPhysics ?? Spring.elegant,
+        widget.yPhysics ?? widget.xPhysics ?? Spring.elegant,
+      );
 
   @override
   void initState() {
@@ -189,7 +191,11 @@ class _PhysicsBuilder2DState extends State<PhysicsBuilder2D>
     super.didUpdateWidget(oldWidget);
     if (widget.value != oldWidget.value) {
       widget.onValueChanged?.call(widget.value);
-      _controller.animateTo(widget.value, velocityDelta: widget.velocityDelta);
+      _controller.animateTo(
+        widget.value,
+        velocityDelta: widget.velocityDelta,
+        physics: _getPhysics(),
+      );
     }
   }
 
