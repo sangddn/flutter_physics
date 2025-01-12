@@ -180,7 +180,7 @@ class PhysicsController extends Animation<double>
     if (from != null) {
       value = from;
     }
-    return _animateToInternal(upperBound);
+    return _animateToInternal(upperBound, physics: defaultPhysics);
   }
 
   /// Starts running this animation in reverse (towards the beginning).
@@ -194,7 +194,7 @@ class PhysicsController extends Animation<double>
     if (from != null) {
       value = from;
     }
-    return _animateToInternal(lowerBound);
+    return _animateToInternal(lowerBound, physics: defaultPhysics);
   }
 
   /// Drives the animation from its current value to target.
@@ -230,12 +230,10 @@ class PhysicsController extends Animation<double>
   TickerFuture _animateToInternal(
     double target, {
     Duration? duration,
-    Physics? physics,
+    required Physics physics,
     double velocityDelta = 0.0,
     double? velocityOverride,
   }) {
-    physics ??= defaultPhysics;
-
     Duration? simulationDuration = duration;
     if (simulationDuration == null) {
       final range = upperBound - lowerBound;
