@@ -19,7 +19,11 @@ class _InterruptedAnimationsPageState extends State<InterruptedAnimationsPage>
     vsync: this,
     defaultPhysics: Spring.elegant,
   );
-  late final _rotationController = PhysicsController(vsync: this);
+  late final _rotationController = PhysicsController(
+    vsync: this,
+    lowerBound: 0.0,
+    upperBound: double.infinity,
+  );
 
   @override
   void dispose() {
@@ -84,79 +88,61 @@ class _InterruptedAnimationsPageState extends State<InterruptedAnimationsPage>
                 },
               ),
             ),
+            const SizedBox(height: 64),
             const Text(
-              'Repeatedly tap the rotating box to see how it naturally responds '
-              'to sudden changes in rotation',
+              'Repeatedly rotate the box in different directions to see how it '
+              'naturally responds to sudden changes in rotation',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 32),
-            GestureDetector(
-              onTap: () {
-                _rotationController.value =
-                    (_rotationController.value ?? 0.0) + 0.25;
-              },
-              child: ValueListenableBuilder<double>(
-                valueListenable: _rotationController,
-                builder: (context, value, _) {
-                  return Transform.rotate(
-                    angle: value * 2 * 3.14159,
-                    child: Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: Colors.blue,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.touch_app,
-                        color: Colors.white,
-                        size: 40,
-                      ),
+            AnimatedBuilder(
+                animation: _rotationController,
+                builder: (_, child) => Transform.rotate(
+                      angle: _rotationController.value * 2 * 3.14159,
+                      child: child,
                     ),
-                  );
-                },
-              ),
+                child: Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: Colors.blue,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.touch_app,
+                    color: Colors.white,
+                    size: 40,
+                  ),
+                )),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    _rotationController.animateTo(
+                      _rotationController.value + .25,
+                      physics: Spring.stern,
+                    );
+                  },
+                  child: const Text('Rotate Right'),
+                ),
+                const SizedBox(width: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    _rotationController.animateTo(
+                      _rotationController.value - .25,
+                      physics: Spring.stern,
+                    );
+                  },
+                  child: const Text('Rotate Left'),
+                ),
+              ],
             ),
           ],
         ),
       ),
     );
   }
-}
-
-class _SliderPainter extends CustomPainter {
-  final double value;
-
-  _SliderPainter(this.value);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.grey[300]!
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4;
-
-    final circlePaint = Paint()
-      ..color = Colors.blue
-      ..style = PaintingStyle.fill;
-
-    // Draw track
-    canvas.drawLine(
-      Offset(0, size.height / 2),
-      Offset(size.width, size.height / 2),
-      paint,
-    );
-
-    // Draw handle
-    final circleX = value * size.width;
-    canvas.drawCircle(
-      Offset(circleX, size.height / 2),
-      12,
-      circlePaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_SliderPainter oldDelegate) => value != oldDelegate.value;
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'implicit_animations_page.dart';
 import 'interrupted_animations_page.dart';
+import 'physics_playground_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -28,7 +29,7 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Flutter Physics Demo'),
@@ -36,6 +37,7 @@ class HomePage extends StatelessWidget {
             tabs: [
               Tab(text: 'Implicit Animations'),
               Tab(text: 'Interrupted Animations'),
+              Tab(text: 'Physics Playground'),
             ],
           ),
         ),
@@ -43,6 +45,7 @@ class HomePage extends StatelessWidget {
           children: [
             ImplicitAnimationsPage(),
             InterruptedAnimationsPage(),
+            PhysicsPlaygroundPage(),
           ],
         ),
       ),
