@@ -86,6 +86,7 @@ part 'physics_controller_2d.dart';
 ///
 ///   @override
 ///   Widget build(BuildContext context) {
+///     // Use AnimatedBuilder to rebuild on each tick.
 ///     return AnimatedBuilder(
 ///       animation: _controller,
 ///       builder: (context, child) {
