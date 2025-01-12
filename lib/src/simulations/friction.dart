@@ -41,7 +41,7 @@ part of 'physics_simulations.dart';
 class Friction extends PhysicsSimulation {
   Friction({
     required super.start,
-    required super.end,
+    required this.end,
     required super.initialVelocity,
     super.tolerance = Tolerance.defaultTolerance,
     this.endVelocity = 0.0,
@@ -82,6 +82,7 @@ class Friction extends PhysicsSimulation {
     duration = estimatedDuration;
     end = _friction.x(duration);
     endVelocity = _solveEndVelocity(initialVelocity, drag, duration);
+    debugPrint('duration: $duration. end: $end. endVelocity: $endVelocity.');
   }
 
   final FrictionSimulation _friction;
@@ -116,6 +117,7 @@ class Friction extends PhysicsSimulation {
     assert(initialVelocity == null ||
         (duration == null && durationScale == null) ||
         (start == null && end == null));
+    debugPrint('copyWith: $start, $end, $initialVelocity, $duration, $durationScale.');
     return Friction(
       start: start ?? this.start,
       end: end ?? this.end,
