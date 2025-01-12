@@ -1,42 +1,157 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/widgets.dart';
 
 import '../controllers/physics_controller.dart';
 import '../simulations/physics_simulations.dart';
-import 'a_state.dart';
+import 'a_value.dart';
 
-/// A wrapper around [AState] that simplifies the creation of physics-based
-/// animations for a single [double] value.
+/// {@template physics_builder}
+/// A purely physics-based equivalent of [AValue.double] that simplifies the
+/// physics-based animation of a single [double] value.
 ///
-/// {@macro a_state}
-class PhysicsBuilder extends StatelessWidget {
+/// As opposed to [AValue.double]:
+/// * [PhysicsBuilder] only supports physics simulations ([PhysicsSimulation]).
+/// * Supports velocity delta and velocity override for gesture-driven
+///   interactions.
+/// {@endtemplate}
+class PhysicsBuilder extends StatefulWidget {
+  /// Creates a physics-based animation for a single [double] value.
+  /// {@macro physics_builder}
   const PhysicsBuilder({
-    required this.physics,
+    this.physics,
     required this.value,
-    this.lowerBound = 0.0,
-    this.upperBound = 1.0,
+    this.lowerBound = double.negativeInfinity,
+    this.upperBound = double.infinity,
+    this.velocityDelta = 0.0,
+    this.velocityOverride,
+    this.duration,
+    this.reverseDuration,
+    this.onValueChanged,
+    this.onEnd,
     required this.builder,
     this.child,
     super.key,
-  });
+  })  : assert(
+          lowerBound <= upperBound,
+          'Lower bound must be less than or equal to upper bound',
+        ),
+        assert(
+          value >= lowerBound && value <= upperBound,
+          'Value must be within the bounds',
+        );
 
-  final PhysicsSimulation physics;
+  /// The physics simulation to use for the animation.
+  ///
+  /// If null, [Spring.gentle] will be used as the default.
+  final PhysicsSimulation? physics;
+
+  /// The target value to animate to.
   final double value;
+
+  /// The minimum value for the animation.
   final double lowerBound;
+
+  /// The maximum value for the animation.
   final double upperBound;
+
+  /// The velocity delta to apply to the animation when [value] changes.
+  final double velocityDelta;
+
+  /// The velocity override to apply to the animation when [value] changes.
+  final double? velocityOverride;
+
+  /// Optional fixed duration for the animation.
+  ///
+  /// Note: Setting a fixed duration may result in unnatural motion as it
+  /// overrides the physics simulation's natural timing. For most natural-looking
+  /// animations, leave this null and let the physics simulation determine
+  /// the duration.
+  final Duration? duration;
+
+  /// Optional fixed duration for the reverse animation.
+  ///
+  /// If null and [duration] is specified, [duration] will be used.
+  /// Note: Like [duration], setting this may result in unnatural motion.
+  final Duration? reverseDuration;
+
+  /// Called when the target [value] changes.
+  final ValueChanged<double>? onValueChanged;
+
+  /// Called when the animation completes.
+  final VoidCallback? onEnd;
+
+  /// Builder function that constructs the widget tree based on the current
+  /// animated value.
   final ValueWidgetBuilder<double> builder;
+
+  /// Optional child widget that will be passed to [builder].
   final Widget? child;
 
   @override
-  Widget build(BuildContext context) => AState.double(
-        physics: physics,
-        value: value,
-        normalize: (double value) =>
-            (value - lowerBound) / (upperBound - lowerBound),
-        lowerBound: lowerBound,
-        upperBound: upperBound,
-        builder: builder,
-        child: child,
+  State<PhysicsBuilder> createState() => _PhysicsBuilderState();
+}
+
+class _PhysicsBuilderState extends State<PhysicsBuilder>
+    with SingleTickerProviderStateMixin {
+  late final _controller = PhysicsController(
+    vsync: this,
+    value: widget.value,
+    lowerBound: widget.lowerBound,
+    upperBound: widget.upperBound,
+    defaultPhysics: widget.physics,
+    duration: widget.duration,
+    reverseDuration: widget.reverseDuration,
+  );
+
+  late double _previousValue = _value;
+  late double _value = widget.value;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed ||
+          status == AnimationStatus.dismissed) {
+        widget.onEnd?.call();
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(PhysicsBuilder oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != oldWidget.value) {
+      widget.onValueChanged?.call(widget.value);
+      _previousValue = oldWidget.value;
+      _value = widget.value;
+      _controller.value = _previousValue;
+      _controller.animateTo(
+        _value,
+        velocityDelta: widget.velocityDelta,
+        velocityOverride: widget.velocityOverride,
+        physics: widget.physics,
       );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final value = ui.lerpDouble(_previousValue, _value, _controller.value)!;
+        return widget.builder(context, value, child);
+      },
+      child: widget.child,
+    );
+  }
 }
 
 /// A widget that smoothly animates between different 2D positions using physics-based
@@ -90,8 +205,10 @@ class PhysicsBuilder2D extends StatefulWidget {
     this.yPhysics,
     required this.value,
     this.velocityDelta = Offset.zero,
-    this.lowerBound = Offset.zero,
-    this.upperBound = const Offset(1.0, 1.0),
+    this.velocityOverride,
+    this.lowerBound =
+        const Offset(double.negativeInfinity, double.negativeInfinity),
+    this.upperBound = Offset.infinite,
     this.duration,
     this.reverseDuration,
     this.onValueChanged,
@@ -99,7 +216,14 @@ class PhysicsBuilder2D extends StatefulWidget {
     required this.builder,
     this.child,
     super.key,
-  });
+  })  : assert(
+          lowerBound <= upperBound,
+          'Lower bound must be less than or equal to upper bound',
+        ),
+        assert(
+          value >= lowerBound && value <= upperBound,
+          'Value must be within the bounds',
+        );
 
   /// The physics simulation to use for the x-axis animation.
   ///
@@ -116,11 +240,17 @@ class PhysicsBuilder2D extends StatefulWidget {
   /// The target position to animate to.
   final Offset value;
 
-  /// The initial velocity to apply to the animation when [value] changes.
+  /// The velocity delta to apply to the animation when [value] changes.
   ///
   /// This is particularly useful for gesture-based interactions where you want
   /// to preserve the momentum of a drag or fling gesture.
   final Offset velocityDelta;
+
+  /// The velocity override to apply to the animation when [value] changes.
+  ///
+  /// This is particularly useful for gesture-based interactions where you want
+  /// to preserve the momentum of a drag or fling gesture.
+  final Offset? velocityOverride;
 
   /// The minimum x and y coordinates for the animation.
   final Offset lowerBound;
@@ -191,9 +321,11 @@ class _PhysicsBuilder2DState extends State<PhysicsBuilder2D>
     super.didUpdateWidget(oldWidget);
     if (widget.value != oldWidget.value) {
       widget.onValueChanged?.call(widget.value);
+      _controller.value = oldWidget.value;
       _controller.animateTo(
         widget.value,
         velocityDelta: widget.velocityDelta,
+        velocityOverride: widget.velocityOverride,
         physics: _getPhysics(),
       );
     }
