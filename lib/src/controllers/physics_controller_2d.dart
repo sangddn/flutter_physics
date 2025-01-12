@@ -179,7 +179,7 @@ class PhysicsController2D extends Animation<Offset>
     this.duration,
     this.reverseDuration,
   })  : _direction = _AnimationDirection.forward,
-        defaultPhysics =
+        _defaultPhysics =
             defaultPhysics ?? Simulation2D(Spring.elegant, Spring.elegant) {
     _ticker = vsync.createTicker(_tick);
     _internalSetValue(value ?? Offset.zero);
@@ -219,7 +219,39 @@ class PhysicsController2D extends Animation<Offset>
   final String? debugLabel;
 
   /// The default physics simulation to use for this controller.
-  Simulation2D defaultPhysics;
+  Simulation2D _defaultPhysics;
+  Simulation2D get defaultPhysics => _defaultPhysics;
+
+  /// Sets the default physics simulation to use for this controller.
+  ///
+  /// If the physics simulation is physics-based, it will maintain momentum
+  /// from the current simulation.
+  set defaultPhysics(Simulation2D physics) {
+    final currentSims = _sims;
+    final shouldUpdate = _defaultPhysics != physics &&
+        currentSims != null &&
+        currentSims.isPhysicsBased() &&
+        physics.isPhysicsBased();
+    _defaultPhysics = physics;
+    if (shouldUpdate) {
+      final velocity = stop();
+      final currentX = currentSims.$1 as PhysicsSimulation;
+      final currentY = currentSims.$2 as PhysicsSimulation;
+      final newX = physics.xPhysics as PhysicsSimulation;
+      final newY = physics.yPhysics as PhysicsSimulation;
+      final x = newX.copyWith(
+        start: _value.dx,
+        end: currentX.end,
+        initialVelocity: velocity.dx,
+      );
+      final y = newY.copyWith(
+        start: _value.dy,
+        end: currentY.end,
+        initialVelocity: velocity.dy,
+      );
+      _startSimulations(x, y);
+    }
+  }
 
   /// The behavior of the controller when [AccessibilityFeatures.disableAnimations]
   /// is true.
