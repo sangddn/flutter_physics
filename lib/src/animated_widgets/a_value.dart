@@ -11,12 +11,12 @@ import '../simulations/physics_simulations.dart';
 /// This widget provides a flexible way to animate various types of values with
 /// built-in support for common Flutter types through named constructors:
 ///
-/// * [AState.double] for animating numeric values
-/// * [AState.color] for animating colors
-/// * [AState.size] for animating sizes
-/// * [AState.offset] for animating positions
-/// * [AState.rect] for animating rectangles
-/// * [AState.alignment] for animating alignments
+/// * [AValue.double] for animating numeric values
+/// * [AValue.color] for animating colors
+/// * [AValue.size] for animating sizes
+/// * [AValue.offset] for animating positions
+/// * [AValue.rect] for animating rectangles
+/// * [AValue.alignment] for animating alignments
 ///
 /// {@template a_state}
 /// When using a standard [Curve], you must provide a [duration]. When using a
@@ -30,7 +30,7 @@ import '../simulations/physics_simulations.dart';
 /// This example shows how to animate a color with spring physics:
 ///
 /// ```dart
-/// AState.color(
+/// AValue.color(
 ///   value: _color,
 ///   physics: Spring.withDamping(
 ///     mass: 1.0,
@@ -49,7 +49,7 @@ import '../simulations/physics_simulations.dart';
 /// This example shows how to animate a custom value using the default constructor:
 ///
 /// ```dart
-/// AState<MyCustomType>(
+/// AValue<MyCustomType>(
 ///   value: _customValue,
 ///   lerp: (a, b, t) => MyCustomType.lerp(a, b, t),
 ///   normalize: (value) => value.progress,
@@ -69,12 +69,12 @@ import '../simulations/physics_simulations.dart';
 ///  * [Spring], a common physics simulation for natural-feeling animations
 ///  * [ASize], a specialized version for size animations
 /// {@endtemplate}
-class AState<T> extends StatefulWidget {
-  const AState({
+class AValue<T> extends StatefulWidget {
+  const AValue({
     required this.value,
     required this.lerp,
-    this.lowerBound = 0.0,
-    this.upperBound = 1.0,
+    this.lowerBound = double.negativeInfinity,
+    this.upperBound = double.infinity,
     required this.normalize,
     this.physics,
     this.duration,
@@ -88,10 +88,10 @@ class AState<T> extends StatefulWidget {
 
   /// Creates a widget that animates double values.
   /// {@macro a_state}
-  const AState.double({
+  const AValue.double({
     required this.value,
-    this.lowerBound = 0.0,
-    this.upperBound = 1.0,
+    this.lowerBound = double.negativeInfinity,
+    this.upperBound = double.infinity,
     required this.normalize,
     this.physics,
     this.duration,
@@ -101,16 +101,16 @@ class AState<T> extends StatefulWidget {
     required this.builder,
     this.child,
     super.key,
-  }) : lerp = AState.lerpDouble as T Function(T, T, double);
+  }) : lerp = AValue.lerpDouble as T Function(T, T, double);
 
   /// Creates a widget that animates between colors.
   /// {@macro a_state}
-  const AState.color({
+  const AValue.color({
     required this.value,
     this.physics,
     this.duration,
-    this.lowerBound = 0.0,
-    this.upperBound = 1.0,
+    this.lowerBound = double.negativeInfinity,
+    this.upperBound = double.infinity,
     required this.normalize,
     this.reverseDuration,
     this.onValueChanged,
@@ -118,75 +118,75 @@ class AState<T> extends StatefulWidget {
     required this.builder,
     this.child,
     super.key,
-  }) : lerp = AState.lerpColor as T Function(T, T, double);
+  }) : lerp = AValue.lerpColor as T Function(T, T, double);
 
   /// Creates a widget that animates between sizes.
   /// {@macro a_state}
-  const AState.size({
+  const AValue.size({
     required this.value,
     this.physics,
     this.duration,
     this.reverseDuration,
-    this.lowerBound = 0.0,
-    this.upperBound = 1.0,
+    this.lowerBound = double.negativeInfinity,
+    this.upperBound = double.infinity,
     required this.normalize,
     this.onValueChanged,
     this.onEnd,
     required this.builder,
     this.child,
     super.key,
-  }) : lerp = AState.lerpSize as T Function(T, T, double);
+  }) : lerp = AValue.lerpSize as T Function(T, T, double);
 
   /// Creates a widget that animates between positions.
   /// {@macro a_state}
-  const AState.offset({
+  const AValue.offset({
     required this.value,
     this.physics,
     this.duration,
     this.reverseDuration,
-    this.lowerBound = 0.0,
-    this.upperBound = 1.0,
+    this.lowerBound = double.negativeInfinity,
+    this.upperBound = double.infinity,
     required this.normalize,
     this.onValueChanged,
     this.onEnd,
     required this.builder,
     this.child,
     super.key,
-  }) : lerp = AState.lerpOffset as T Function(T, T, double);
+  }) : lerp = AValue.lerpOffset as T Function(T, T, double);
 
   /// Creates a widget that animates between rectangles.
   /// {@macro a_state}
-  const AState.rect({
+  const AValue.rect({
     required this.value,
     this.physics,
     this.duration,
     this.reverseDuration,
-    this.lowerBound = 0.0,
-    this.upperBound = 1.0,
+    this.lowerBound = double.negativeInfinity,
+    this.upperBound = double.infinity,
     required this.normalize,
     this.onValueChanged,
     this.onEnd,
     required this.builder,
     this.child,
     super.key,
-  }) : lerp = AState.lerpRect as T Function(T, T, double);
+  }) : lerp = AValue.lerpRect as T Function(T, T, double);
 
   /// Creates a widget that animates between alignments.
   /// {@macro a_state}
-  const AState.alignment({
+  const AValue.alignment({
     required this.value,
     this.physics,
     this.duration,
     this.reverseDuration,
-    this.lowerBound = 0.0,
-    this.upperBound = 1.0,
+    this.lowerBound = double.negativeInfinity,
+    this.upperBound = double.infinity,
     required this.normalize,
     this.onValueChanged,
     this.onEnd,
     required this.builder,
     this.child,
     super.key,
-  }) : lerp = AState.lerpAlignment as T Function(T, T, double);
+  }) : lerp = AValue.lerpAlignment as T Function(T, T, double);
 
   /// The current value to animate to.
   final T value;
@@ -246,14 +246,14 @@ class AState<T> extends StatefulWidget {
       AlignmentGeometry.lerp(a, b, t)!;
 
   @override
-  State<AState<T>> createState() => _AStateState<T>();
+  State<AValue<T>> createState() => _AValueState<T>();
 }
 
-class _AStateState<T> extends State<AState<T>>
+class _AValueState<T> extends State<AValue<T>>
     with SingleTickerProviderStateMixin {
   late final _controller = PhysicsController(
     vsync: this,
-    value: widget.normalize.call(widget.value),
+    value: widget.normalize(widget.value),
     lowerBound: widget.lowerBound,
     upperBound: widget.upperBound,
     defaultPhysics: widget.physics,
@@ -267,6 +267,15 @@ class _AStateState<T> extends State<AState<T>>
   @override
   void initState() {
     super.initState();
+    assert(
+      widget.lowerBound <= widget.upperBound,
+      'Lower bound must be less than or equal to upper bound',
+    );
+    assert(
+      widget.normalize(widget.value) >= widget.lowerBound &&
+          widget.normalize(widget.value) <= widget.upperBound,
+      'Value must be within the bounds',
+    );
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed ||
           status == AnimationStatus.dismissed) {
@@ -276,13 +285,13 @@ class _AStateState<T> extends State<AState<T>>
   }
 
   @override
-  void didUpdateWidget(AState<T> oldWidget) {
+  void didUpdateWidget(AValue<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.value != oldWidget.value) {
       widget.onValueChanged?.call(widget.value);
       _previousValue = oldWidget.value;
       _value = widget.value;
-      _controller.animateTo(widget.normalize.call(_value));
+      _controller.animateTo(widget.normalize(_value));
     }
   }
 
