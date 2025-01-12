@@ -82,7 +82,6 @@ class Friction extends PhysicsSimulation {
     duration = estimatedDuration;
     end = _friction.x(duration);
     endVelocity = _solveEndVelocity(initialVelocity, drag, duration);
-    debugPrint('duration: $duration. end: $end. endVelocity: $endVelocity.');
   }
 
   final FrictionSimulation _friction;
