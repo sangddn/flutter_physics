@@ -3,7 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/widgets.dart';
 
 import '../controllers/physics_controller.dart';
-import '../simulations/physical_simulations.dart';
+import '../simulations/physics_simulations.dart';
 
 /// A widget that smoothly animates between different values of type [T] whenever
 /// the value changes, using either standard curves or physics-based animations.

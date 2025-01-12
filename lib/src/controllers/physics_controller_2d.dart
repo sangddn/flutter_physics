@@ -86,10 +86,8 @@ part of 'physics_controller.dart';
 ///   Offset _position = Offset.zero;
 ///
 ///   void _onPanUpdate(DragUpdateDetails details) {
-///     setState(() {
-///       _position += details.delta;
-///     });
-///     _controller.value = _position;
+///     _position += details.delta;
+///     _controller.animateTo(_position);
 ///   }
 ///
 ///   void _onPanEnd(DragEndDetails details) {

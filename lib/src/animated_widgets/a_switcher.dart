@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../controllers/physics_controller.dart';
-import '../simulations/physical_simulations.dart';
+import '../simulations/physics_simulations.dart';
 
 /// {@template a_switcher}
 /// A widget that animates between two children using physics-based animations.
