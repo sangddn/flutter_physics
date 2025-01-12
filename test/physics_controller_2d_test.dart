@@ -218,6 +218,92 @@ void main() {
       localController.dispose();
     });
   });
+
+  group('defaultPhysics behavior', () {
+    testWidgets('Mid-flight physics change preserves velocity', (tester) async {
+      final springDesc = SpringDescription(
+        mass: 1.0,
+        stiffness: 100.0,
+        damping: 10.0,
+      );
+
+      final initialSpring = Spring(
+        description: springDesc,
+        start: 0.0,
+        end: 1.0,
+      );
+
+      final newSpring = Spring(
+        description: SpringDescription(
+          mass: 2.0,
+          stiffness: 200.0,
+          damping: 20.0,
+        ),
+      );
+
+      controller.animateWith(Simulation2D(initialSpring, initialSpring));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Capture mid-flight velocity
+      final midVelocity = controller.velocity;
+      expect(midVelocity.distance, greaterThan(0));
+
+      // Change physics mid-flight
+      controller.defaultPhysics = Simulation2D(newSpring, newSpring);
+
+      // Immediately after change, velocity should be preserved
+      expect(controller.velocity.distance, closeTo(midVelocity.distance, 1.0));
+      expect(controller.isAnimating, isTrue);
+
+      await tester.pumpAndSettle();
+      expect(controller.value,
+          matchesOffset(const Offset(1.0, 1.0), tolerance: 0.01));
+      expect(controller.isAnimating, isFalse);
+    });
+
+    testWidgets(
+        'Changing to non-physics simulation does not affect current animation',
+        (tester) async {
+      final spring = Spring(
+        description: SpringDescription(
+          mass: 1.0,
+          stiffness: 100.0,
+          damping: 10.0,
+        ),
+      );
+
+      controller.animateWith(Simulation2D(spring, spring));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final midValue = controller.value;
+      final midVelocity = controller.velocity;
+
+      // Change to a non-physics simulation
+      controller.defaultPhysics =
+          Simulation2D(Curves.easeInOut, Curves.easeInOut);
+
+      // Animation should continue unchanged
+      expect(controller.value, equals(midValue));
+      expect(controller.velocity, equals(midVelocity));
+      expect(controller.isAnimating, isTrue);
+
+      await tester.pumpAndSettle();
+      expect(controller.value,
+          matchesOffset(const Offset(1.0, 1.0), tolerance: 0.01));
+    });
+
+    test('Setting same physics instance does not restart animation', () {
+      final simulation = Simulation2D(Spring.elegant, Spring.elegant);
+      controller.defaultPhysics = simulation;
+      controller.animateWith(simulation);
+
+      // Setting same instance should not affect animation
+      controller.defaultPhysics = simulation;
+      expect(controller.isAnimating, isTrue);
+    });
+  });
 }
 
 class TestVSync implements TickerProvider {

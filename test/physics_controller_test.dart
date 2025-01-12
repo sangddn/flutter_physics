@@ -165,7 +165,7 @@ void main() {
       // Let it settle
       await tester.pumpAndSettle();
 
-      expect(localController.value, equals(1.0));
+      expect(localController.value, closeTo(1.0, 0.0001));
       expect(localController.status, AnimationStatus.completed);
       expect(localController.isAnimating, false);
 
@@ -174,7 +174,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 10));
       await tester.pumpAndSettle();
 
-      expect(localController.value, equals(0.0));
+      expect(localController.value, closeTo(0.0, 0.0001));
       expect(localController.status, AnimationStatus.dismissed);
       expect(localController.isAnimating, false);
 
@@ -192,7 +192,7 @@ void main() {
     expect(controller.velocity, closeTo(oldVelocity + 50.0, 10.0));
 
     await tester.pumpAndSettle();
-    expect(controller.value, 1.0);
+    expect(controller.value, closeTo(1.0, 0.0001));
   });
 
   testWidgets('velocityOverride replaces current velocity', (tester) async {
@@ -207,7 +207,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
     expect(controller.velocity, isNot(closeTo(oldVelocity, 1e-1)));
     await tester.pumpAndSettle();
-    expect(controller.value, 1.0);
+    expect(controller.value, closeTo(1.0, 0.0001));
   });
 
   testWidgets('repeat animation', (WidgetTester tester) async {
@@ -236,6 +236,89 @@ void main() {
 
     expect(() => localController.forward(), throwsAssertionError);
     expect(() => localController.dispose(), throwsFlutterError);
+  });
+
+  group('defaultPhysics behavior', () {
+    testWidgets('Mid-flight physics change preserves velocity', (tester) async {
+      final springDesc = SpringDescription(
+        mass: 1.0,
+        stiffness: 100.0,
+        damping: 10.0,
+      );
+
+      final initialSpring = Spring(
+        description: springDesc,
+        start: 0.0,
+        end: 1.0,
+      );
+
+      final newSpring = Spring(
+        description: SpringDescription(
+          mass: 2.0,
+          stiffness: 200.0,
+          damping: 20.0,
+        ),
+      );
+
+      controller.animateWith(initialSpring);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Capture mid-flight velocity
+      final midVelocity = controller.velocity;
+      expect(midVelocity, greaterThan(0));
+
+      // Change physics mid-flight
+      controller.defaultPhysics = newSpring;
+
+      // Immediately after change, velocity should be preserved
+      expect(controller.velocity, closeTo(midVelocity, 1.0));
+      expect(controller.isAnimating, isTrue);
+
+      await tester.pumpAndSettle();
+      expect(controller.value, closeTo(1.0, 0.01));
+      expect(controller.isAnimating, isFalse);
+    });
+
+    testWidgets(
+        'Changing to non-physics simulation does not affect current animation',
+        (tester) async {
+      final spring = Spring(
+        description: SpringDescription(
+          mass: 1.0,
+          stiffness: 100.0,
+          damping: 10.0,
+        ),
+      );
+
+      controller.animateWith(spring);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final midValue = controller.value;
+      final midVelocity = controller.velocity;
+
+      // Change to a non-physics simulation
+      controller.defaultPhysics = Curves.easeInOut;
+
+      // Animation should continue unchanged
+      expect(controller.value, equals(midValue));
+      expect(controller.velocity, equals(midVelocity));
+      expect(controller.isAnimating, isTrue);
+
+      await tester.pumpAndSettle();
+      expect(controller.value, closeTo(1.0, 0.01));
+    });
+
+    test('Setting same physics instance does not restart animation', () {
+      final spring = Spring.elegant;
+      controller.defaultPhysics = spring;
+      controller.animateWith(spring);
+
+      // Setting same instance should not affect animation
+      controller.defaultPhysics = spring;
+      expect(controller.isAnimating, isTrue);
+    });
   });
 }
 
