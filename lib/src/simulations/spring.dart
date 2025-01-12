@@ -98,22 +98,28 @@ class Spring extends PhysicsSimulation {
   /// A swift, snappy spring with minimal oscillation
   static final swift = Spring(description: swiftDescription);
   static const swiftDescription = SpringDescription(
-    mass: 0.3,
-    stiffness: 280.0,
-    damping: 18.0,
+    mass: 0.8,
+    stiffness: 290.0,
+    damping: 28.0,
   );
 
   /// A smooth, elegant motion with slight bounce
-  static final elegant = Spring.withDamping(
-    mass: 0.6,
-    dampingFraction: 0.86,
-    initialVelocity: -1.0,
-    duration: const Duration(milliseconds: 350),
+  static final elegant = Spring.withBounce(
+    bounce: 0.1,
+    initialVelocity: -.5,
+    duration: const Duration(milliseconds: 550),
   );
 
   /// A snappy, responsive spring
   static final snap = Spring(description: snapDescription);
   static const snapDescription = SpringDescription(
+    mass: 0.7,
+    stiffness: 320.0,
+    damping: 26.0,
+  );
+
+  static final playful = Spring(description: playfulDescription);
+  static const playfulDescription = SpringDescription(
     mass: 0.4,
     stiffness: 320.0,
     damping: 20.0,
@@ -138,31 +144,31 @@ class Spring extends PhysicsSimulation {
   /// A bouncy, buoyant spring with some weight
   static final buoyant = Spring(description: buoyantDescription);
   static const buoyantDescription = SpringDescription(
-    mass: 10.0,
-    stiffness: 900.0,
-    damping: 80.0,
+    mass: 0.9,
+    stiffness: 40.0,
+    damping: 8.0,
   );
 
   /// A quick, energetic fling
   static final fling = Spring(description: flingDescription);
   static const flingDescription = SpringDescription(
-    mass: 4.0,
-    stiffness: 800.0,
-    damping: 80.0,
+    mass: 3.0,
+    stiffness: 32.0,
+    damping: 16.0,
   );
 
   /// A slow, relaxed motion
   static final slow = Spring(description: slowDescription);
   static const slowDescription = SpringDescription(
-    mass: 0.2,
-    stiffness: 26.7,
-    damping: 4.1,
+    mass: 0.3,
+    stiffness: 28.7,
+    damping: 5.6,
   );
 
   /// A playful bobbing motion
   static final bob = Spring(description: bobDescription);
   static const bobDescription = SpringDescription(
-    mass: 0.1,
+    mass: 1.2,
     stiffness: 131.1,
     damping: 2.3,
   );
@@ -170,8 +176,8 @@ class Spring extends PhysicsSimulation {
   /// An extremely bouncy, cartoonish spring
   static final boingoingoing = Spring(description: boingoingoingDescription);
   static const boingoingoingDescription = SpringDescription(
-    mass: 0.1,
-    stiffness: 1000.0,
+    mass: 0.6,
+    stiffness: 700.0,
     damping: 1.5,
   );
 
@@ -223,6 +229,28 @@ class Spring extends PhysicsSimulation {
         startPosition: start,
         endPosition: end,
         time: durationInSeconds,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is Spring &&
+      description.damping == other.description.damping &&
+      description.stiffness == other.description.stiffness &&
+      description.mass == other.description.mass &&
+      start == other.start &&
+      end == other.end &&
+      initialVelocity == other.initialVelocity &&
+      tolerance == other.tolerance;
+
+  @override
+  int get hashCode => Object.hash(
+        description.damping,
+        description.stiffness,
+        description.mass,
+        start,
+        end,
+        initialVelocity,
+        tolerance,
       );
 }
 

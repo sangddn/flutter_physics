@@ -111,6 +111,24 @@ class Gravity extends PhysicsSimulation {
     return (d - 0.5 * gravity * durationInSeconds * durationInSeconds) /
         durationInSeconds;
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is Gravity &&
+      gravity == other.gravity &&
+      start == other.start &&
+      end == other.end &&
+      initialVelocity == other.initialVelocity &&
+      tolerance == other.tolerance;
+
+  @override
+  int get hashCode => Object.hash(
+        gravity,
+        start,
+        end,
+        initialVelocity,
+        tolerance,
+      );
 }
 
 double _solveForGravityTime(double x, double y, double a, double v0) {

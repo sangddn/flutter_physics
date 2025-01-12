@@ -32,8 +32,8 @@ class Simulation2D extends Curve2D {
             "Both x and y must be physics simulations or both must be regular curves.");
 
   final Physics _x, _y;
- 
-  /// Returns true if both simulations are physics-based, ie. both are of type 
+
+  /// Returns true if both simulations are physics-based, ie. both are of type
   /// [PhysicsSimulation].
   bool isPhysicsBased() => _x is PhysicsSimulation && _y is PhysicsSimulation;
 
@@ -73,10 +73,18 @@ class Simulation2D extends Curve2D {
   @override
   String toString() =>
       '${objectRuntimeType(this, 'Simulation2D')}(x: $_x, y: $_y)';
+
+  @override
+  bool operator ==(Object other) =>
+      other is Simulation2D && _x == other._x && _y == other._y;
+
+  @override
+  int get hashCode => Object.hash(_x, _y);
 }
 
 extension Simulation2DExtension on (Simulation, Simulation) {
   Offset x(double time) => Offset($1.x(time), $2.x(time));
   Offset dx(double time) => Offset($1.dx(time), $2.dx(time));
   bool isDone(double time) => $1.isDone(time) && $2.isDone(time);
+  bool isPhysicsBased() => $1 is PhysicsSimulation && $2 is PhysicsSimulation;
 }

@@ -116,7 +116,6 @@ class Friction extends PhysicsSimulation {
     assert(initialVelocity == null ||
         (duration == null && durationScale == null) ||
         (start == null && end == null));
-    debugPrint('copyWith: $start, $end, $initialVelocity, $duration, $durationScale.');
     return Friction(
       start: start ?? this.start,
       end: end ?? this.end,
@@ -148,6 +147,26 @@ class Friction extends PhysicsSimulation {
 
     return (end - start) * k / denominator;
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is Friction &&
+      drag == other.drag &&
+      start == other.start &&
+      end == other.end &&
+      initialVelocity == other.initialVelocity &&
+      tolerance == other.tolerance &&
+      endVelocity == other.endVelocity;
+
+  @override
+  int get hashCode => Object.hash(
+        drag,
+        start,
+        end,
+        initialVelocity,
+        tolerance,
+        endVelocity,
+      );
 }
 
 // Copied from Flutter's [FrictionSimulation].
