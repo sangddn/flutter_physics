@@ -3,6 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_physics/flutter_physics.dart';
 import 'dart:math' as math;
 
+const _gridCount = 4;
+const _ballSize = 60.0;
+const _gap = 10.0;
+const _containerSize = (_ballSize + _gap) * _gridCount - _gap;
+
 class PhysicsGrid extends StatefulWidget {
   const PhysicsGrid({super.key});
 
@@ -12,10 +17,7 @@ class PhysicsGrid extends StatefulWidget {
 
 class _PhysicsGridState extends State<PhysicsGrid>
     with SingleTickerProviderStateMixin {
-  static const gridCount = 4;
-  static const size = 60.0;
-  static const gap = 10.0;
-
+  // Tracks which cell is being dragged.
   // Tracks which cell is being dragged.
   int activeRow = 0, activeCol = 0;
   Offset dragOffset = Offset.zero; // actual offset of the dragged cell
@@ -29,19 +31,6 @@ class _PhysicsGridState extends State<PhysicsGrid>
     defaultPhysics: Curves.ease,
     duration: const Duration(seconds: 10),
   );
-
-  @override
-  void initState() {
-    super.initState();
-    // Just have it repeat from 0..360, loop forever
-    _hueController.repeat(min: 0, max: 360, reverse: false);
-  }
-
-  @override
-  void dispose() {
-    _hueController.dispose();
-    super.dispose();
-  }
 
   // Calculate custom stiffness/damping based on distance from active cell
   Spring _springForCell(int rowIndex, int colIndex) {
@@ -58,9 +47,20 @@ class _PhysicsGridState extends State<PhysicsGrid>
   }
 
   @override
-  Widget build(BuildContext context) {
-    const containerSize = (size + gap) * gridCount - gap;
+  void initState() {
+    super.initState();
+    // Just have it repeat from 0..360, loop forever
+    _hueController.repeat(min: 0, max: 360, reverse: false);
+  }
 
+  @override
+  void dispose() {
+    _hueController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(
         middle: Text('Physics Grid'),
@@ -68,12 +68,12 @@ class _PhysicsGridState extends State<PhysicsGrid>
       child: SafeArea(
         child: Center(
           child: SizedBox.square(
-            dimension: containerSize,
+            dimension: _containerSize,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                for (int row = 0; row < gridCount; row++)
-                  for (int col = 0; col < gridCount; col++)
+                for (int row = 0; row < _gridCount; row++)
+                  for (int col = 0; col < _gridCount; col++)
                     _buildCell(row, col),
               ],
             ),
@@ -84,8 +84,8 @@ class _PhysicsGridState extends State<PhysicsGrid>
   }
 
   Widget _buildCell(int rowIndex, int colIndex) {
-    final double baseLeft = colIndex * (size + gap);
-    final double baseTop = rowIndex * (size + gap);
+    final double baseLeft = colIndex * (_ballSize + _gap);
+    final double baseTop = rowIndex * (_ballSize + _gap);
 
     final diagonalIndex = ((rowIndex + colIndex) * (360 / 6)).toInt();
     final color = HSVColor.fromAHSV(
@@ -112,7 +112,6 @@ class _PhysicsGridState extends State<PhysicsGrid>
       },
       child: GestureDetector(
         onPanStart: (_) => setState(() {
-          debugPrint('onPanStart: $rowIndex, $colIndex');
           activeRow = rowIndex;
           activeCol = colIndex;
           dragOffset = Offset.zero;
@@ -124,18 +123,28 @@ class _PhysicsGridState extends State<PhysicsGrid>
           // Snap back to (0, 0) in local coords for this cell
           dragOffset = Offset.zero;
         }),
-        child: _buildCircle(color, rowIndex, colIndex, isActive: isActive),
+        child: _Circle(color, rowIndex, colIndex, isActive),
       ),
     );
   }
+}
 
-  Widget _buildCircle(Color color, int row, int col, {required bool isActive}) {
-    return AContainer(
-      width: size,
-      height: size,
+class _Circle extends StatelessWidget {
+  const _Circle(this.color, this.row, this.col, this.isActive);
+
+  final Color color;
+  final int row;
+  final int col;
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: _ballSize,
+      height: _ballSize,
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(size * 0.5),
+        borderRadius: BorderRadius.circular(_ballSize * 0.5),
         boxShadow: isActive
             ? [
                 BoxShadow(
