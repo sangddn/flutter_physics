@@ -156,7 +156,7 @@ class PhysicsController extends Animation<double>
             reverseDuration != null ||
             defaultPhysics is PhysicsSimulation?),
         _direction = _AnimationDirection.forward,
-        defaultPhysics = defaultPhysics ?? Spring.elegant {
+        _defaultPhysics = defaultPhysics ?? Spring.elegant {
     _ticker = vsync.createTicker(_tick);
     _internalSetValue(value);
   }
@@ -178,7 +178,7 @@ class PhysicsController extends Animation<double>
             reverseDuration != null ||
             defaultPhysics is PhysicsSimulation?),
         _direction = _AnimationDirection.forward,
-        defaultPhysics = defaultPhysics ?? Spring.elegant {
+        _defaultPhysics = defaultPhysics ?? Spring.elegant {
     _ticker = vsync.createTicker(_tick);
     _internalSetValue(value ?? lowerBound);
   }
@@ -201,7 +201,33 @@ class PhysicsController extends Animation<double>
   /// // Standard curve
   /// defaultPhysics = Curves.easeOutCubic;
   /// ```
-  Physics defaultPhysics;
+  Physics get defaultPhysics => _defaultPhysics;
+  Physics _defaultPhysics;
+
+  /// Sets the default physics simulation to use for this controller.
+  ///
+  /// If the physics simulation is physics-based, it will maintain momentum
+  /// from the current simulation.
+  set defaultPhysics(Physics physics) {
+    final currentSim = _simulation;
+    final shouldUpdate = _defaultPhysics != physics &&
+        currentSim != null &&
+        currentSim is PhysicsSimulation &&
+        physics is PhysicsSimulation;
+    _defaultPhysics = physics;
+    if (shouldUpdate) {
+      final velocity = stop();
+      final currentPhysics = currentSim;
+      final newPhysics = physics;
+      _startSimulation(
+        newPhysics.copyWith(
+          start: _value,
+          end: currentPhysics.end,
+          initialVelocity: velocity,
+        ),
+      );
+    }
+  }
 
   /// A label that is used in the [toString] output.
   final String? debugLabel;
