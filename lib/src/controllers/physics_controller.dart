@@ -8,11 +8,130 @@ import '../simulations/physics_simulations.dart';
 
 part 'physics_controller_2d.dart';
 
-/// A controller for physics-based animations.
+/// {@template physics_controller}
+/// A controller for physics-based animations that supports both standard curves and physics simulations.
 ///
-/// This is similar to [AnimationController], but it has special handling for
-/// [PhysicsSimulation]s - allowing them to be used directly as curves while
-/// maintaining their physical simulation properties.
+/// Similar to [AnimationController], but with enhanced support for physics-based animations.
+/// The key features are:
+///
+/// * Accepts both standard [Curve]s and [PhysicsSimulation]s (like [Spring])
+/// * Dynamically responds to changes mid-animation when using physics simulations
+/// * Maintains velocity across animation updates
+/// * Drop-in replacement for [AnimationController]
+///
+/// ## Usage
+///
+/// Create a controller with a [TickerProvider] (usually from [SingleTickerProviderStateMixin]):
+///
+/// ```dart
+/// class _MyWidgetState extends State<MyWidget> with SingleTickerProviderStateMixin {
+///   late final _controller = PhysicsController(vsync: this);
+///
+///   @override
+///   void dispose() {
+///     _controller.dispose();
+///     super.dispose();
+///   }
+/// }
+/// ```
+///
+/// ### Using with Standard Curves
+///
+/// When using standard curves, you must provide a duration either in the constructor
+/// or in animation methods:
+///
+/// ```dart
+/// // In constructor
+/// final controller = PhysicsController(
+///   vsync: this,
+///   duration: const Duration(milliseconds: 300),
+/// );
+///
+/// // Or in methods
+/// controller.animateTo(
+///   1.0,
+///   duration: const Duration(milliseconds: 300),
+///   physics: Curves.easeOut,
+/// );
+/// ```
+///
+/// ### Using with Physics Simulations
+///
+/// {@tool snippet}
+/// Physics simulations like [Spring] automatically calculate their duration and
+/// respond naturally to interruptions:
+///
+/// ```dart
+/// class PhysicsCard extends StatefulWidget {
+///   const PhysicsCard({super.key});
+///
+///   @override
+///   State<PhysicsCard> createState() => _PhysicsCardState();
+/// }
+///
+/// class _PhysicsCardState extends State<PhysicsCard> with SingleTickerProviderStateMixin {
+///   late final _controller = PhysicsController(
+///     vsync: this,
+///     defaultPhysics: Spring.withDamping(
+///       dampingFraction: 0.9,
+///     ),
+///   );
+///
+///   Alignment _alignment = Alignment.center;
+///
+///   void _onPanEnd(DragEndDetails details) {
+///     // Physics simulation maintains momentum from gesture
+///     _controller.animateTo(0.0);
+///   }
+///
+///   @override
+///   Widget build(BuildContext context) {
+///     return AnimatedBuilder(
+///       animation: _controller,
+///       builder: (context, child) {
+///         return Align(
+///           alignment: _alignment,
+///           child: child,
+///         );
+///       },
+///       child: const Card(
+///         child: FlutterLogo(size: 128),
+///       ),
+///     );
+///   }
+/// }
+/// ```
+/// {@end-tool}
+///
+/// ### Responding to Changes Mid-Animation
+///
+/// Physics simulations maintain momentum when target values change:
+///
+/// ```dart
+/// // Initial animation
+/// controller.animateTo(1.0);
+///
+/// // Later, interrupt with new target
+/// await Future.delayed(const Duration(milliseconds: 100));
+/// controller.animateTo(0.5); // Maintains current velocity
+/// ```
+///
+/// ## Common Use Cases
+///
+/// * Gesture-driven animations (drag and release)
+/// * Pull-to-refresh indicators
+/// * Scrolling physics
+/// * Natural-feeling transitions
+///
+/// This controller can be used anywhere [AnimationController] is accepted:
+/// [AnimatedBuilder], [RotationTransition], etc.
+///
+/// See also:
+///
+/// * [Spring], a physics simulation that creates natural-feeling animations
+/// * [AnimationController], Flutter's standard animation controller
+/// * [PhysicsSimulation], base class for custom physics simulations
+/// {@endtemplate}
 class PhysicsController extends Animation<double>
     with
         AnimationEagerListenerMixin,
@@ -20,13 +139,7 @@ class PhysicsController extends Animation<double>
         AnimationLocalStatusListenersMixin {
   /// Creates a physics-based animation controller.
   ///
-  /// {@macro physics_controller_parameters}
-  ///
-  /// * [lowerBound] is the smallest value this animation can obtain and the
-  ///   value at which this animation is deemed to be dismissed.
-  ///
-  /// * [upperBound] is the largest value this animation can obtain and the
-  ///   value at which this animation is deemed to be completed.
+  /// {@macro physics_controller}
   PhysicsController({
     double value = 0.0,
     this.duration,
@@ -47,19 +160,9 @@ class PhysicsController extends Animation<double>
     _internalSetValue(value);
   }
 
-  /// Creates a physics-based animation controller with an unounded range.
+  /// Creates a physics-based animation controller with an unbounded range.
   ///
-  /// {@template physics_controller_parameters}
-  /// * [value] is the initial value of the animation.
-  ///
-  /// * [duration] is the length of time this animation should last. Required if
-  ///   [defaultPhysics] is not a [PhysicsSimulation].
-  ///
-  /// * [debugLabel] is a string to help identify this animation during
-  ///   debugging (used by [toString]).
-  ///
-  /// * `vsync` is the required [TickerProvider] for the current context.
-  /// {@endtemplate}
+  /// {@macro physics_controller}
   PhysicsController.unbounded({
     double? value,
     this.duration,
@@ -86,6 +189,17 @@ class PhysicsController extends Animation<double>
   final double upperBound;
 
   /// The default physics simulation to use for this controller.
+  ///
+  /// This physics will be used when no explicit physics is provided to animation methods.
+  /// Common choices include:
+  ///
+  /// ```dart
+  /// // Natural spring motion
+  /// defaultPhysics = Spring.withDamping(dampingFraction: 0.9);
+  ///
+  /// // Standard curve
+  /// defaultPhysics = Curves.easeOutCubic;
+  /// ```
   Physics defaultPhysics;
 
   /// A label that is used in the [toString] output.
@@ -133,7 +247,9 @@ class PhysicsController extends Animation<double>
     value = lowerBound;
   }
 
-  /// The rate of change of [value] per second.
+  /// The current velocity of the animation.
+  ///
+  /// Returns 0.0 when not animating.
   double get velocity {
     if (!isAnimating) {
       return 0.0;
@@ -198,6 +314,37 @@ class PhysicsController extends Animation<double>
   }
 
   /// Drives the animation from its current value to target.
+  ///
+  /// When using [PhysicsSimulation] as the [physics] parameter, the animation
+  /// can maintain momentum across updates, and can accept [velocityOverride]
+  /// and [velocityDelta] to tailor the initial velocity.
+  ///
+  /// ```dart
+  /// void onPanEnd(DragEndDetails details) {
+  ///   // Combine gesture velocity with current animation velocity
+  ///   final velocity = details.velocity.pixelsPerSecond.dx + controller.velocity;
+  ///   controller.animateTo(
+  ///     targetValue,
+  ///     velocityDelta: velocity,
+  ///   );
+  /// }
+  /// ```
+  ///
+  /// The [velocityOverride] and [velocityDelta] parameters are only valid when using
+  /// physics simulations. They allow fine-tuning of the initial velocity:
+  /// * [velocityOverride] completely replaces the current velocity
+  /// * [velocityDelta] adds to the current velocity.
+  ///
+  /// For standard curves, [duration] is required if not already provided
+  /// in the controller ([PhysicsController.duration] or [PhysicsController.reverseDuration]).
+  ///
+  /// ```dart
+  /// controller.animateTo(
+  ///   1.0,
+  ///   duration: const Duration(milliseconds: 300),
+  ///   physics: Curves.easeOut,
+  /// );
+  /// ```
   TickerFuture animateTo(
     double target, {
     double velocityDelta = 0.0,
@@ -462,24 +609,49 @@ class PhysicsController extends Animation<double>
   /// Starts running this animation in the forward direction, and
   /// restarts the animation when it completes.
   ///
-  /// Defaults to repeating between the [lowerBound] and [upperBound] of the
-  /// [PhysicsController] when no explicit value is set for [min] and [max].
+  /// {@tool snippet}
+  /// Particularly useful for continuous animations like loading indicators or
+  /// background effects:
   ///
-  /// With [reverse] set to true, instead of always starting over at [min]
-  /// the starting value will alternate between [min] and [max] values on each
-  /// repeat. The [status] will be reported as [AnimationStatus.reverse] when
-  /// the animation runs from [max] to [min].
+  /// ```dart
+  /// class SpringingRotation extends StatefulWidget {
+  ///   const SpringingRotation({super.key});
   ///
-  /// Each run of the animation will have a duration of `period`. If `period` is not
-  /// provided, [duration] will be used instead, which has to be set before [repeat] is
-  /// called either in the constructor or later by using the [duration] setter.
+  ///   @override
+  ///   State<SpringingRotation> createState() => _SpringingRotationState();
+  /// }
   ///
-  /// If a value is passed to [count], the animation will perform that many
-  /// iterations before stopping. Otherwise, the animation repeats indefinitely.
+  /// class _SpringingRotationState extends State<SpringingRotation>
+  ///     with SingleTickerProviderStateMixin {
+  ///   late final _controller = PhysicsController(
+  ///     vsync: this,
+  ///     defaultPhysics: Spring.snap,
+  ///   );
   ///
-  /// Returns a [TickerFuture] that never completes, unless a [count] is specified.
-  /// The [TickerFuture.orCancel] future completes with an error when the animation is
-  /// stopped (e.g. with [stop]).
+  ///   @override
+  ///   void initState() {
+  ///     super.initState();
+  ///     _controller.repeat(
+  ///       min: 0,
+  ///       max: pi * 2,
+  ///       reverse: true, // Oscillate back and forth
+  ///     );
+  ///   }
+  ///
+  ///   @override
+  ///   Widget build(BuildContext context) {
+  ///     return RotationTransition(
+  ///       turns: _controller,
+  ///       child: const FlutterLogo(size: 64),
+  ///     );
+  ///   }
+  /// }
+  /// ```
+  /// {@end-tool}
+  ///
+  /// The [min] and [max] parameters default to [lowerBound] and [upperBound].
+  /// When [reverse] is true, the animation alternates direction each cycle.
+  /// The [count] parameter limits the number of repetitions (infinite by default).
   TickerFuture repeat({
     double? min,
     double? max,
@@ -532,16 +704,10 @@ enum _AnimationDirection {
   reverse,
 }
 
-final SpringDescription _kFlingSpringDescription =
-    SpringDescription.withDampingRatio(
-  mass: 1.0,
-  stiffness: 500.0,
-);
+final _kFlingSpringDescription =
+    SpringDescription.withDampingRatio(mass: 1.0, stiffness: 500.0);
 
-const Tolerance _kFlingTolerance = Tolerance(
-  velocity: double.infinity,
-  distance: 0.01,
-);
+const _kFlingTolerance = Tolerance(velocity: double.infinity, distance: 0.01);
 
 class _InterpolationSimulation extends Simulation {
   _InterpolationSimulation(

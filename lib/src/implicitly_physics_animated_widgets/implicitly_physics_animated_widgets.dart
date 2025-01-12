@@ -12,23 +12,114 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_physics/flutter_physics.dart';
 
 /// A base class resembling `ImplicitlyAnimatedWidget` driven by a [PhysicsController].
+///
+/// This class provides a physics-first approach to implicit animations, allowing widgets
+/// to smoothly animate changes to their properties using physics simulations or curves.
+///
+/// {@tool snippet}
+/// This example shows a basic usage of [ImplicitlyPhysicsAnimatedWidget] to create
+/// a container that animates its color using spring physics:
+///
+/// ```dart
+/// class BouncingBox extends ImplicitlyPhysicsAnimatedWidget {
+///   const BouncingBox({
+///     super.key,
+///     required this.offset,
+///     super.physics = const Spring(
+///       mass: 1.0,
+///       stiffness: 180,
+///       damping: 12,
+///     ),
+///   });
+///
+///   final Offset offset;
+///
+///   @override
+///   State<BouncingBox> createState() => _BouncingBoxState();
+/// }
+///
+/// class _BouncingBoxState extends PhysicsAnimatedWidgetState<BouncingBox> {
+///   OffsetTween? _offsetTween;
+///
+///   @override
+///   void forEachTween(PhysicsTweenVisitor<dynamic> visitor) {
+///     _offsetTween = visitor(
+///       _offsetTween,
+///       widget.offset,
+///       (value) => OffsetTween(begin: value as Offset),
+///     ) as OffsetTween?;
+///   }
+///
+///   @override
+///   Widget build(BuildContext context) {
+///     return Transform.translate(
+///       offset: _offsetTween?.evaluate(animation) ?? Offset.zero,
+///       child: Container(
+///         width: 100,
+///         height: 100,
+///         decoration: BoxDecoration(
+///           color: Colors.blue,
+///           borderRadius: BorderRadius.circular(8),
+///           boxShadow: [
+///             BoxShadow(
+///               color: Colors.black.withOpacity(0.2),
+///               blurRadius: 8,
+///               offset: const Offset(0, 4),
+///             ),
+///           ],
+///         ),
+///       ),
+///     );
+///   }
+/// }
+/// ```
+/// {@end-tool}
+///
+/// ## Key Features
+///
+/// Unlike Flutter's built-in [ImplicitlyAnimatedWidget], this widget:
+/// * Uses [PhysicsController] instead of [AnimationController]
+/// * Supports both [PhysicsSimulation] and [Curve] based animations
+/// * Provides natural-feeling animations through physics
+/// * Can work without a fixed duration when using physics simulations
+///
+/// ## Common Use Cases
+///
+/// This widget is particularly useful for:
+/// * Creating smooth, natural-feeling transitions
+/// * Animating UI elements with realistic physics
+/// * Building responsive interfaces that react to user input
+/// * Implementing gesture-driven animations
+///
+/// ## Built-in Variants
+///
+/// Several pre-built physics-animated widgets are provided:
+/// * [AContainer] - Physics version of [AnimatedContainer]
+/// * [APadding] - Physics version of [AnimatedPadding]
+/// * [AAlign] - Physics version of [AnimatedAlign]
+/// * [APositioned] - Physics version of [AnimatedPositioned]
+/// * [AOpacity] - Physics version of [AnimatedOpacity]
+/// * And more...
+///
 /// {@template ImplicitlyPhysicsAnimatedWidget}
-  /// * [duration] is the length of time this "implicit" animation should last,
-  ///   unless overridden. This is used as the default for the [PhysicsController]'s
-  ///   forward or reverse calls. For best results, if physics is [PhysicsSimulation]
-  ///   consider leaving this null. For non-[PhysicsSimulation] physics, such
-  ///   as Flutter's built-in [Curve], this is required.
-  ///
-  /// * [physics] is the [Physics] to use for transitions. Can use any
-  ///   [PhysicsSimulation] or Flutter's built-in [Curve]. Defaults to
-  ///   [Spring.elegant] if not provided.
-  ///
-  /// * [onEnd] is a callback that is called when the animation completes.
-  ///
-  /// See also:
-  /// - [PhysicsAnimatedWidgetState], which is the state class for this widget.
-  /// - [PhysicsController], which is the controller class for this widget.
-  /// {@endtemplate}
+/// The key properties that control how this widget animates:
+///
+/// * [duration]: Controls how long the animation takes to complete.
+///   - For physics simulations ([PhysicsSimulation]): Leave this null for best results.
+///   - For curve-based animations ([Curve]): This is required.
+///   - Can be overridden when manually controlling the animation.
+///   - Used as the default duration for [PhysicsController.forward] and [PhysicsController.reverse]
+///
+/// * [physics]: Determines the motion behavior of the animation.
+///   - Can be a physics simulation (like [Spring.snap]) or a standard [Curve] (like [Curves.easeInOut]).
+///   - Physics simulations provide natural, dynamic motion.
+///   - Curves provide traditional easing animations.
+///   - Defaults to [Spring.elegant] if not specified.
+///
+/// * [onEnd]: A callback function that runs when the animation finishes.
+///   - Called after both forward and reverse animations complete.
+///   - Useful for chaining animations or triggering follow-up actions.
+/// {@endtemplate}
 abstract class ImplicitlyPhysicsAnimatedWidget extends StatefulWidget {
   /// Creates a new [ImplicitlyPhysicsAnimatedWidget].
   /// {@macro ImplicitlyPhysicsAnimatedWidget}
@@ -39,15 +130,39 @@ abstract class ImplicitlyPhysicsAnimatedWidget extends StatefulWidget {
     this.onEnd,
   }) : assert(duration != null || physics is PhysicsSimulation?);
 
-  /// The length of time this "implicit" animation should last, unless overridden.
-  /// This is used as the default for the [PhysicsController]'s forward or reverse calls.
+  /// The duration of the animation.
+  ///
+  /// This value is used as the default duration for [PhysicsController.forward] and
+  /// [PhysicsController.reverse] calls. It can be overridden when manually controlling
+  /// the animation.
+  ///
+  /// For physics simulations ([PhysicsSimulation]), this should be null to allow the
+  /// physics to determine the natural duration. For curve-based animations ([Curve]),
+  /// this is required.
   final Duration? duration;
 
-  /// The [Physics] to use for transitions. Can use any [PhysicsSimulation] or
-  /// Flutter's built-in [Curve]. Defaults to [Spring.elegant] if not provided.
+  /// The physics or curve that controls how the animation moves.
+  ///
+  /// This can be either:
+  /// * A [PhysicsSimulation] like [Spring.snap] for natural, dynamic motion
+  /// * A [Curve] like [Curves.easeInOut] for traditional easing animations
+  ///
+  /// If not specified, defaults to [Spring.elegant] for natural motion.
+  ///
+  /// Physics simulations provide more natural-feeling animations by modeling real-world
+  /// physics, while curves provide more predictable, traditional easing animations.
   final Physics? physics;
 
-  /// Called every time an animation completes.
+  /// A callback that is called when the animation completes.
+  ///
+  /// This callback is invoked in two scenarios:
+  /// * When a forward animation reaches its target value
+  /// * When a reverse animation returns to its initial value
+  ///
+  /// This is useful for:
+  /// * Chaining multiple animations together
+  /// * Triggering side effects after an animation
+  /// * Cleaning up resources when an animation finishes
   final VoidCallback? onEnd;
 }
 
@@ -63,7 +178,8 @@ typedef PhysicsTweenVisitor<T extends Object> = Tween<T>? Function(
 typedef TweenConstructor<T extends Object> = Tween<T> Function(T value);
 
 /// A base state class that uses a [PhysicsController] instead of an [AnimationController].
-/// Subclass this if you want to rebuild on each tick (like `AnimatedWidgetBaseState`).
+/// Subclassing this does **not** automatically rebuild on each tick. To rebuild
+/// on each tick, use the `RebuildOnTick` mixin.
 ///
 /// To animate changes to your widget's fields, store `Tween` objects in your
 /// subclass state. Override [forEachTween] to create/update these tweens
@@ -188,13 +304,13 @@ abstract class PhysicsAnimatedWidgetState<
 
 /// A mixin that rebuilds the state on each tick of the physics controller.
 /// This is useful for widgets that need to rebuild on each tick, like [AContainer].
-mixin _RebuildOnTick<T extends ImplicitlyPhysicsAnimatedWidget> on State<T> {
-  PhysicsController get _controller;
+mixin RebuildOnTick<T extends ImplicitlyPhysicsAnimatedWidget> on State<T> {
+  PhysicsController get controller;
 
   @override
   void initState() {
     super.initState();
-    _controller.addListener(_handleAnimationChanged);
+    controller.addListener(_handleAnimationChanged);
   }
 
   void _handleAnimationChanged() {
@@ -203,6 +319,62 @@ mixin _RebuildOnTick<T extends ImplicitlyPhysicsAnimatedWidget> on State<T> {
 }
 
 /// Physics-based equivalent of [AnimatedContainer], renamed to [AContainer].
+///
+/// Automatically transitions between different values for properties when they change,
+/// using physics-based animations. The physics simulation or curve used for the transition
+/// is configurable via the [physics] property.
+///
+/// {@macro ImplicitlyPhysicsAnimatedWidget}
+///
+/// {@tool snippet}
+/// This example shows a container that uses spring physics to animate its size and color:
+///
+/// ```dart
+/// class _MyWidget extends StatefulWidget {
+///   @override
+///   State<_MyWidget> createState() => _MyWidgetState();
+/// }
+///
+/// class _MyWidgetState extends State<_MyWidget> {
+///   bool _expanded = false;
+///
+///   @override
+///   Widget build(BuildContext context) {
+///     return AContainer(
+///       // duration: const Duration(milliseconds: 500), // Only used for curve-based physics
+///       physics: Spring.withDamping(dampingFraction: 0.5), // or Curves.easeInOut
+///       width: _expanded ? 200.0 : 100.0,
+///       height: _expanded ? 200.0 : 100.0,
+///       decoration: BoxDecoration(
+///         color: _expanded ? Colors.blue : Colors.red,
+///         borderRadius: BorderRadius.circular(8),
+///       ),
+///       child: GestureDetector(
+///         onTap: () => setState(() => _expanded = !_expanded),
+///         child: const Center(child: Text('Tap me!')),
+///       ),
+///     );
+///   }
+/// }
+/// ```
+/// {@end-tool}
+///
+/// The following properties are animated:
+/// * [decoration]
+/// * [foregroundDecoration]
+/// * [constraints]
+/// * [margin]
+/// * [padding]
+/// * [transform]
+/// * [alignment]
+/// * [transformAlignment]
+///
+/// The [child] and [clipBehavior] properties are not animated.
+///
+/// See also:
+/// * [APadding], which only animates the padding property
+/// * [AAlign], which only animates the alignment property
+/// * [Container], the non-animated version of this widget
 class AContainer extends ImplicitlyPhysicsAnimatedWidget {
   const AContainer({
     super.key,
@@ -237,7 +409,7 @@ class AContainer extends ImplicitlyPhysicsAnimatedWidget {
 }
 
 class _AContainerState extends PhysicsAnimatedWidgetState<AContainer>
-    with _RebuildOnTick {
+    with RebuildOnTick {
   DecorationTween? _decoration;
   DecorationTween? _foregroundDecoration;
   AlignmentGeometryTween? _alignment;
@@ -341,6 +513,45 @@ class _AContainerState extends PhysicsAnimatedWidgetState<AContainer>
 }
 
 /// Physics-based equivalent of [AnimatedPadding], renamed to [APadding].
+///
+/// Animates changes in padding using physics-based animations, providing more natural
+/// and configurable transitions compared to curve-based animations.
+///
+/// {@macro ImplicitlyPhysicsAnimatedWidget}
+///
+/// {@tool snippet}
+/// This example shows a container that expands its padding with spring physics:
+///
+/// ```dart
+/// class _MyWidget extends StatefulWidget {
+///   @override
+///   State<_MyWidget> createState() => _MyWidgetState();
+/// }
+///
+/// class _MyWidgetState extends State<_MyWidget> {
+///   bool _expanded = false;
+///
+///   @override
+///   Widget build(BuildContext context) {
+///     return APadding(
+///       physics: Spring.elegant,
+///       padding: EdgeInsets.all(_expanded ? 32.0 : 8.0),
+///       child: GestureDetector(
+///         onTap: () => setState(() => _expanded = !_expanded),
+///         child: Container(
+///           color: Colors.blue,
+///           child: const Center(child: Text('Tap me!')),
+///         ),
+///       ),
+///     );
+///   }
+/// }
+/// ```
+/// {@end-tool}
+///
+/// See also:
+/// * [AContainer], which can animate padding along with other properties
+/// * [BetterPadding], which handles negative padding values correctly
 class APadding extends ImplicitlyPhysicsAnimatedWidget {
   const APadding({
     super.key,
@@ -359,7 +570,7 @@ class APadding extends ImplicitlyPhysicsAnimatedWidget {
 }
 
 class _APaddingState extends PhysicsAnimatedWidgetState<APadding>
-    with _RebuildOnTick {
+    with RebuildOnTick {
   EdgeInsetsGeometryTween? _padding;
 
   @override
@@ -386,58 +597,56 @@ class _APaddingState extends PhysicsAnimatedWidgetState<APadding>
   }
 }
 
-class BetterPadding extends StatelessWidget {
-  const BetterPadding({required this.padding, required this.child, super.key});
-
-  final EdgeInsetsGeometry padding;
-  final Widget? child;
-
-  @override
-  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
-    super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<EdgeInsetsGeometry>('padding', padding));
-    properties
-        .add(DiagnosticsProperty<Widget?>('child', child, defaultValue: null));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final effectivePadding = padding.resolve(Directionality.of(context));
-    final negativeTop = effectivePadding.top < 0 ? effectivePadding.top : 0;
-    final negativeLeft = effectivePadding.left < 0 ? effectivePadding.left : 0;
-    final negativeRight =
-        effectivePadding.right < 0 ? effectivePadding.right : 0;
-    final negativeBottom =
-        effectivePadding.bottom < 0 ? effectivePadding.bottom : 0;
-    final child = Padding(
-      padding:
-          effectivePadding.clamp(EdgeInsets.zero, EdgeInsetsGeometry.infinity),
-      child: this.child,
-    );
-    if (negativeTop != 0 ||
-        negativeLeft != 0 ||
-        negativeRight != 0 ||
-        negativeBottom != 0) {
-      // For horizontal direction:
-      // - negative left padding should move content left (-x)
-      // - negative right padding should move content right (+x)
-      final x = -negativeLeft + -negativeRight;
-
-      // For vertical direction:
-      // - negative top padding should move content up (-y)
-      // - negative bottom padding should move content down (+y)
-      final y = -negativeTop + -negativeBottom;
-
-      return Transform.translate(
-        offset: Offset(x.toDouble(), y.toDouble()),
-        child: child,
-      );
-    }
-    return child;
-  }
-}
-
 /// Physics-based equivalent of [AnimatedAlign], renamed to [AAlign].
+///
+/// Animates changes in alignment using physics-based animations. This widget is particularly
+/// useful for creating smooth, physics-based positioning transitions.
+///
+/// {@macro ImplicitlyPhysicsAnimatedWidget}
+///
+/// {@tool snippet}
+/// This example shows a box that bounces between different alignment positions:
+///
+/// ```dart
+/// class _MyWidget extends StatefulWidget {
+///   @override
+///   State<_MyWidget> createState() => _MyWidgetState();
+/// }
+///
+/// class _MyWidgetState extends State<_MyWidget> {
+///   bool _aligned = false;
+///
+///   @override
+///   Widget build(BuildContext context) {
+///     return AAlign(
+///       physics: Spring.snap,
+///       alignment: _aligned ? Alignment.topRight : Alignment.bottomLeft,
+///       child: GestureDetector(
+///         onTap: () => setState(() => _aligned = !_aligned),
+///         child: Container(
+///           width: 50,
+///           height: 50,
+///           color: Colors.blue,
+///         ),
+///       ),
+///     );
+///   }
+/// }
+/// ```
+/// {@end-tool}
+///
+/// ## Properties
+///
+/// * [alignment] - The target alignment to animate towards
+/// * [heightFactor] - Optional height factor that can be animated
+/// * [widthFactor] - Optional width factor that can be animated
+///
+/// The [heightFactor] and [widthFactor] properties, if non-null, cause the child to
+/// expand to fill a fraction of the available space.
+///
+/// See also:
+/// * [APositioned], for animating position in a [Stack]
+/// * [ASlide], for animating position relative to normal position
 class AAlign extends ImplicitlyPhysicsAnimatedWidget {
   const AAlign({
     super.key,
@@ -460,7 +669,7 @@ class AAlign extends ImplicitlyPhysicsAnimatedWidget {
 }
 
 class _AAlignState extends PhysicsAnimatedWidgetState<AAlign>
-    with _RebuildOnTick {
+    with RebuildOnTick {
   AlignmentGeometryTween? _alignment;
   Tween<double>? _heightFactor;
   Tween<double>? _widthFactor;
@@ -509,7 +718,59 @@ class _AAlignState extends PhysicsAnimatedWidgetState<AAlign>
 }
 
 /// Physics-based equivalent of [AnimatedPositioned], renamed to [APositioned].
-/// Only works if it's the child of a [Stack].
+/// {@template a_positioned}
+/// Animates changes in position within a [Stack] using physics-based animations.
+/// This widget must be a direct child of a [Stack].
+///
+/// {@macro ImplicitlyPhysicsAnimatedWidget}
+///
+/// {@tool snippet}
+/// This example shows a positioned box that springs between two positions in a stack:
+///
+/// ```dart
+/// class _MyWidget extends StatefulWidget {
+///   @override
+///   State<_MyWidget> createState() => _MyWidgetState();
+/// }
+///
+/// class _MyWidgetState extends State<_MyWidget> {
+///   bool _moved = false;
+///
+///   @override
+///   Widget build(BuildContext context) {
+///     return Stack(
+///       children: [
+///         APositioned(
+///           physics: Spring.withDamping(
+///             mass: 1.0,
+///             dampingFraction: 0.5,
+///           ),
+///           left: _moved ? 250.0 : 50.0,
+///           top: _moved ? 50.0 : 150.0,
+///           width: 50.0,
+///           height: 50.0,
+///           child: GestureDetector(
+///             onTap: () => setState(() => _moved = !_moved),
+///             child: Container(color: Colors.blue),
+///           ),
+///         ),
+///       ],
+///     );
+///   }
+/// }
+/// ```
+/// {@end-tool}
+///
+/// ## Usage Notes
+///
+/// * At least one position property (left, right, top, or bottom) must be non-null
+/// * If both left and right (or top and bottom) are non-null, the widget will be stretched
+/// * Width and height are optional but recommended for predictable sizing
+///
+/// See also:
+/// * [APositionedDirectional] for RTL-aware positioning
+/// * [ASlide] for simpler relative positioning
+/// {@endtemplate}
 class APositioned extends ImplicitlyPhysicsAnimatedWidget {
   const APositioned({
     super.key,
@@ -538,7 +799,7 @@ class APositioned extends ImplicitlyPhysicsAnimatedWidget {
 }
 
 class _APositionedState extends PhysicsAnimatedWidgetState<APositioned>
-    with _RebuildOnTick {
+    with RebuildOnTick {
   Tween<double>? _left;
   Tween<double>? _top;
   Tween<double>? _right;
@@ -578,7 +839,10 @@ class _APositionedState extends PhysicsAnimatedWidgetState<APositioned>
 }
 
 /// Physics-based equivalent of [AnimatedPositionedDirectional], renamed to [APositionedDirectional].
-/// Only works if it's the child of a [Stack].
+/// Directional equivalent of [APositioned].
+///
+/// Copied from [APositioned]:
+/// {@macro a_positioned}
 class APositionedDirectional extends ImplicitlyPhysicsAnimatedWidget {
   const APositionedDirectional({
     super.key,
@@ -608,7 +872,7 @@ class APositionedDirectional extends ImplicitlyPhysicsAnimatedWidget {
 
 class _APositionedDirectionalState
     extends PhysicsAnimatedWidgetState<APositionedDirectional>
-    with _RebuildOnTick {
+    with RebuildOnTick {
   Tween<double>? _start;
   Tween<double>? _top;
   Tween<double>? _end;
@@ -653,8 +917,55 @@ class _APositionedDirectionalState
 
 /// Physics-based equivalent of [AnimatedScale], renamed to [AScale].
 ///
-/// Animates its [scale] property using physics-based animations.
-/// The [alignment] and [filterQuality] properties are not animated.
+/// Animates changes in scale using physics-based animations, providing natural-feeling
+/// scaling effects. This is particularly useful for interactive UI elements that
+/// need to scale in response to user input.
+///
+/// {@macro ImplicitlyPhysicsAnimatedWidget}
+///
+/// {@tool snippet}
+/// This example shows a widget that bounces between two scales when tapped:
+///
+/// ```dart
+/// class _MyWidget extends StatefulWidget {
+///   @override
+///   State<_MyWidget> createState() => _MyWidgetState();
+/// }
+///
+/// class _MyWidgetState extends State<_MyWidget> {
+///   bool _enlarged = false;
+///
+///   @override
+///   Widget build(BuildContext context) {
+///     return AScale(
+///       physics: Spring.snap,
+///       scale: _enlarged ? 1.5 : 1.0,
+///       alignment: Alignment.center,
+///       child: GestureDetector(
+///         onTap: () => setState(() => _enlarged = !_enlarged),
+///         child: Container(
+///           width: 100,
+///           height: 100,
+///           color: Colors.blue,
+///           child: const Center(child: Text('Tap me!')),
+///         ),
+///       ),
+///     );
+///   }
+/// }
+/// ```
+/// {@end-tool}
+///
+/// ## Performance Considerations
+///
+/// * Scale animations are generally more performant than opacity animations
+/// * Consider using [filterQuality] to improve scaled image quality
+/// * Large scale factors may impact performance due to increased pixel processing
+///
+/// See also:
+/// * [ARotation] for rotating widgets
+/// * [ASlide] for translating widgets
+/// * [AOpacity] for fading widgets
 class AScale extends ImplicitlyPhysicsAnimatedWidget {
   const AScale({
     super.key,
@@ -719,8 +1030,56 @@ class _AScaleState extends PhysicsAnimatedWidgetState<AScale> {
 
 /// Physics-based equivalent of [AnimatedRotation], renamed to [ARotation].
 ///
-/// Animates its [turns] property using physics-based animations.
-/// The [alignment] and [filterQuality] properties are not animated.
+/// Animates changes in rotation using physics-based animations. This widget is useful
+/// for creating natural-feeling rotation animations, especially when combined with
+/// spring physics.
+///
+/// {@macro ImplicitlyPhysicsAnimatedWidget}
+///
+/// {@tool snippet}
+/// This example shows a widget that springs between two rotation angles:
+///
+/// ```dart
+/// class _MyWidget extends StatefulWidget {
+///   @override
+///   State<_MyWidget> createState() => _MyWidgetState();
+/// }
+///
+/// class _MyWidgetState extends State<_MyWidget> {
+///   bool _rotated = false;
+///
+///   @override
+///   Widget build(BuildContext context) {
+///     return ARotation(
+///       physics: Spring.withDamping(
+///         mass: 1.0,
+///         dampingFraction: 0.5,
+///       ),
+///       turns: _rotated ? 0.5 : 0.0, // Half turn when rotated
+///       child: GestureDetector(
+///         onTap: () => setState(() => _rotated = !_rotated),
+///         child: Container(
+///           width: 100,
+///           height: 100,
+///           color: Colors.blue,
+///           child: const Center(child: Text('Tap me!')),
+///         ),
+///       ),
+///     );
+///   }
+/// }
+/// ```
+/// {@end-tool}
+///
+/// ## Properties
+///
+/// * [turns] - The target rotation in turns (1.0 = 360 degrees)
+/// * [alignment] - The alignment of the rotation origin
+/// * [filterQuality] - The quality of image filtering when rotating
+///
+/// See also:
+/// * [AScale] for scaling animations
+/// * [ASlide] for translation animations
 class ARotation extends ImplicitlyPhysicsAnimatedWidget {
   const ARotation({
     super.key,
@@ -785,8 +1144,59 @@ class _ARotationState extends PhysicsAnimatedWidgetState<ARotation> {
 
 /// Physics-based equivalent of [AnimatedSlide], renamed to [ASlide].
 ///
-/// Animates its [offset] property using physics-based animations to slide
-/// the child widget relative to its normal position.
+/// Animates changes in position relative to its normal position using physics-based
+/// animations. This provides a simpler alternative to [APositioned] when you just
+/// want to offset a widget from its normal position.
+///
+/// {@macro ImplicitlyPhysicsAnimatedWidget}
+///
+/// {@tool snippet}
+/// This example shows a widget that slides horizontally with spring physics:
+///
+/// ```dart
+/// class _MyWidget extends StatefulWidget {
+///   @override
+///   State<_MyWidget> createState() => _MyWidgetState();
+/// }
+///
+/// class _MyWidgetState extends State<_MyWidget> {
+///   bool _slid = false;
+///
+///   @override
+///   Widget build(BuildContext context) {
+///     return ASlide(
+///       physics: Spring.withDamping(
+///         mass: 1.0,
+///         dampingFraction: 0.5,
+///       ),
+///       offset: Offset(_slid ? 1.0 : 0.0, 0.0), // Slide right by 100% of width
+///       child: GestureDetector(
+///         onTap: () => setState(() => _slid = !_slid),
+///         child: Container(
+///           width: 100,
+///           height: 100,
+///           color: Colors.blue,
+///           child: const Center(child: Text('Tap me!')),
+///         ),
+///       ),
+///     );
+///   }
+/// }
+/// ```
+/// {@end-tool}
+///
+/// ## Understanding Offset Values
+///
+/// The [offset] property uses relative values where:
+/// * x: 1.0 = 100% of the child's width
+/// * y: 1.0 = 100% of the child's height
+///
+/// This makes it easy to create responsive animations that work across different
+/// screen sizes.
+///
+/// See also:
+/// * [APositioned] for absolute positioning within a [Stack]
+/// * [AAlign] for alignment-based positioning
 class ASlide extends ImplicitlyPhysicsAnimatedWidget {
   const ASlide({
     super.key,
@@ -843,8 +1253,63 @@ class _ASlideState extends PhysicsAnimatedWidgetState<ASlide> {
 
 /// Physics-based equivalent of [AnimatedOpacity], renamed to [AOpacity].
 ///
-/// Animates its [opacity] property using physics-based animations.
-/// The [alwaysIncludeSemantics] property is not animated.
+/// {@template a_opacity}
+/// Animates changes in opacity using physics-based animations, providing more natural
+/// and configurable transitions compared to curve-based animations.
+///
+/// {@macro ImplicitlyPhysicsAnimatedWidget}
+///
+/// {@tool snippet}
+/// This example shows a fading text widget that uses a custom spring simulation:
+///
+/// ```dart
+/// class _MyWidget extends StatefulWidget {
+///   @override
+///   State<_MyWidget> createState() => _MyWidgetState();
+/// }
+///
+/// class _MyWidgetState extends State<_MyWidget> {
+///   bool _visible = true;
+///
+///   @override
+///   Widget build(BuildContext context) {
+///     return AOpacity(
+///       physics: Spring.withDamping(
+///         mass: 1.0,
+///         dampingFraction: 0.8,
+///       ),
+///       opacity: _visible ? 1.0 : 0.0,
+///       child: const Text('Fade me!'),
+///     );
+///   }
+/// }
+/// ```
+/// {@end-tool}
+///
+/// ## Performance Considerations
+///
+/// Animating opacity is relatively expensive because it requires painting the child
+/// into an intermediate buffer. For better performance:
+///
+/// * Consider using [ASlide] or [AScale] instead if possible
+/// * Use [alwaysIncludeSemantics] judiciously
+/// * Consider combining with [AnimatedSwitcher] for more complex transitions
+///
+/// ## Hit Testing
+///
+/// When [opacity] is 0.0, hit testing is still performed. To prevent this,
+/// wrap the [AOpacity] widget in an [IgnorePointer]:
+///
+/// ```dart
+/// IgnorePointer(
+///   ignoring: opacity < 0.1,
+///   child: AOpacity(
+///     opacity: opacity,
+///     child: child,
+///   ),
+/// )
+/// ```
+/// {@endtemplate}
 class AOpacity extends ImplicitlyPhysicsAnimatedWidget {
   const AOpacity({
     super.key,
@@ -906,9 +1371,7 @@ class _AOpacityState extends PhysicsAnimatedWidgetState<AOpacity> {
 }
 
 /// Physics-based equivalent of [SliverAnimatedOpacity], renamed to [ASliverOpacity].
-///
-/// Animates its [opacity] property using physics-based animations.
-/// The [alwaysIncludeSemantics] property is not animated.
+/// {@macro a_opacity}
 class ASliverOpacity extends ImplicitlyPhysicsAnimatedWidget {
   const ASliverOpacity({
     super.key,
@@ -936,8 +1399,7 @@ class ASliverOpacity extends ImplicitlyPhysicsAnimatedWidget {
   }
 }
 
-class _ASliverOpacityState
-    extends PhysicsAnimatedWidgetState<ASliverOpacity> {
+class _ASliverOpacityState extends PhysicsAnimatedWidgetState<ASliverOpacity> {
   Tween<double>? _opacity;
 
   @override
@@ -966,8 +1428,63 @@ class _ASliverOpacityState
 
 /// Physics-based equivalent of [AnimatedDefaultTextStyle], renamed to [ADefaultTextStyle].
 ///
-/// Animates changes in [style] using physics-based animations.
-/// Other properties like [textAlign], [softWrap], [overflow], etc. are not animated.
+/// Animates changes in text style using physics-based animations. This is particularly
+/// useful for creating smooth transitions between different text styles, such as
+/// when implementing dynamic typography or theme changes.
+///
+/// {@macro ImplicitlyPhysicsAnimatedWidget}
+///
+/// {@tool snippet}
+/// This example shows text that springs between two different styles:
+///
+/// ```dart
+/// class _MyWidget extends StatefulWidget {
+///   @override
+///   State<_MyWidget> createState() => _MyWidgetState();
+/// }
+///
+/// class _MyWidgetState extends State<_MyWidget> {
+///   bool _enlarged = false;
+///
+///   @override
+///   Widget build(BuildContext context) {
+///     return ADefaultTextStyle(
+///       physics: Spring.withDamping(
+///         mass: 1.0,
+///         dampingFraction: 0.8,
+///       ),
+///       style: TextStyle(
+///         fontSize: _enlarged ? 24.0 : 16.0,
+///         color: _enlarged ? Colors.blue : Colors.black,
+///         fontWeight: _enlarged ? FontWeight.bold : FontWeight.normal,
+///       ),
+///       child: GestureDetector(
+///         onTap: () => setState(() => _enlarged = !_enlarged),
+///         child: const Text('Tap to resize me!'),
+///       ),
+///     );
+///   }
+/// }
+/// ```
+/// {@end-tool}
+///
+/// ## Animatable Properties
+///
+/// The following [TextStyle] properties are animated:
+/// * [TextStyle.color]
+/// * [TextStyle.backgroundColor]
+/// * [TextStyle.fontSize]
+/// * [TextStyle.fontWeight]
+/// * [TextStyle.letterSpacing]
+/// * [TextStyle.wordSpacing]
+/// * [TextStyle.height]
+/// * [TextStyle.decorationThickness]
+///
+/// Other [TextStyle] properties are not animated and update immediately.
+///
+/// See also:
+/// * [AOpacity] for fading text in and out
+/// * [AContainer] for animating text containers
 class ADefaultTextStyle extends ImplicitlyPhysicsAnimatedWidget {
   const ADefaultTextStyle({
     super.key,
@@ -1017,8 +1534,7 @@ class ADefaultTextStyle extends ImplicitlyPhysicsAnimatedWidget {
 }
 
 class _ADefaultTextStyleState
-    extends PhysicsAnimatedWidgetState<ADefaultTextStyle>
-    with _RebuildOnTick {
+    extends PhysicsAnimatedWidgetState<ADefaultTextStyle> with RebuildOnTick {
   TextStyleTween? _style;
 
   @override
@@ -1052,9 +1568,59 @@ class _ADefaultTextStyleState
 
 /// Physics-based equivalent of [AnimatedPhysicalModel], renamed to [APhysicalModel].
 ///
-/// Animates [elevation], [color], and [shadowColor] using physics-based animations.
-/// The [color] and [shadowColor] animations can be disabled using [animateColor] and
-/// [animateShadowColor] respectively.
+/// Animates changes in elevation and colors using physics-based animations. This widget
+/// is particularly useful for creating material design-style cards with natural-feeling
+/// elevation changes.
+///
+/// {@macro ImplicitlyPhysicsAnimatedWidget}
+///
+/// {@tool snippet}
+/// This example shows a card that springs up when tapped:
+///
+/// ```dart
+/// class ExampleWidget extends StatefulWidget {
+///   const ExampleWidget({super.key});
+
+///   @override
+///   State<ExampleWidget> createState() => _ExampleWidgetState();
+/// }
+
+/// class _ExampleWidgetState extends State<ExampleWidget> {
+///   bool _elevated = false;
+
+///   @override
+///   Widget build(BuildContext context) {
+///     return APhysicalModel(
+///       physics: Spring.elegant,
+///       elevation: _elevated ? 8.0 : 1.0,
+///       color: _elevated ? Colors.blue.shade200 : Colors.white,
+///       borderRadius: BorderRadius.circular(8),
+///       child: GestureDetector(
+///         onTap: () => setState(() => _elevated = !_elevated),
+///         child: Container(
+///           width: 200,
+///           height: 100,
+///           alignment: Alignment.center,
+///           child: Text(_elevated ? 'Tap to lower' : 'Tap to raise'),
+///         ),
+///       ),
+///     );
+///   }
+/// }
+/// ```
+/// {@end-tool}
+///
+/// ## Animatable Properties
+///
+/// * [elevation] - Animates the z-height of the widget
+/// * [color] - Animates the surface color (if [animateColor] is true)
+/// * [shadowColor] - Animates the shadow color (if [animateShadowColor] is true)
+///
+/// The [shape] and [clipBehavior] properties are not animated.
+///
+/// See also:
+/// * [AContainer] for simpler container animations
+/// * [AOpacity] for fading effects
 class APhysicalModel extends ImplicitlyPhysicsAnimatedWidget {
   const APhysicalModel({
     super.key,
@@ -1064,9 +1630,9 @@ class APhysicalModel extends ImplicitlyPhysicsAnimatedWidget {
     this.clipBehavior = Clip.none,
     this.borderRadius,
     this.elevation = 0.0,
-    required this.color,
+    this.color = const Color(0xffFFFFFF),
     this.animateColor = true,
-    required this.shadowColor,
+    this.shadowColor = const Color(0xff000000),
     this.animateShadowColor = true,
     super.physics,
     super.onEnd,
@@ -1107,7 +1673,7 @@ class APhysicalModel extends ImplicitlyPhysicsAnimatedWidget {
 }
 
 class _APhysicalModelState extends PhysicsAnimatedWidgetState<APhysicalModel>
-    with _RebuildOnTick {
+    with RebuildOnTick {
   BorderRadiusTween? _borderRadius;
   Tween<double>? _elevation;
   ColorTween? _color;
@@ -1160,8 +1726,64 @@ class _APhysicalModelState extends PhysicsAnimatedWidgetState<APhysicalModel>
 
 /// Physics-based equivalent of [AnimatedFractionallySizedBox], renamed to [AFractionallySizedBox].
 ///
-/// Animates [widthFactor] and [heightFactor] using physics-based animations.
-/// The [alignment] property is not animated.
+/// Animates changes in fractional dimensions using physics-based animations. This widget
+/// is useful for creating responsive animations that scale relative to their parent's size.
+///
+/// {@macro ImplicitlyPhysicsAnimatedWidget}
+///
+/// {@tool snippet}
+/// This example shows a box that springs between different fractional sizes:
+///
+/// ```dart
+/// class _MyWidget extends StatefulWidget {
+///   @override
+///   State<_MyWidget> createState() => _MyWidgetState();
+/// }
+///
+/// class _MyWidgetState extends State<_MyWidget> {
+///   bool _expanded = false;
+///
+///   @override
+///   Widget build(BuildContext context) {
+///     return AFractionallySizedBox(
+///       physics: Spring(
+///         mass: 1.0,
+///         dampingFraction: 0.9,
+///       ),
+///       widthFactor: _expanded ? 0.8 : 0.3,
+///       heightFactor: _expanded ? 0.4 : 0.2,
+///       child: GestureDetector(
+///         onTap: () => setState(() => _expanded = !_expanded),
+///         child: Container(
+///           decoration: BoxDecoration(
+///             color: Colors.blue,
+///             borderRadius: BorderRadius.circular(8),
+///           ),
+///           child: const Center(child: Text('Tap me!')),
+///         ),
+///       ),
+///     );
+///   }
+/// }
+/// ```
+/// {@end-tool}
+///
+/// ## Understanding Factors
+///
+/// * [widthFactor] and [heightFactor] must be non-negative
+/// * A factor of 1.0 means 100% of the parent's corresponding dimension
+/// * A factor of 0.5 means 50% of the parent's corresponding dimension
+/// * If a factor is null, the child's corresponding dimension will not be constrained
+///
+/// ## Common Use Cases
+///
+/// * Responsive layouts that adapt to parent size
+/// * Expandable panels or drawers
+/// * Interactive UI elements that need to scale relative to their container
+///
+/// See also:
+/// * [AContainer] for more general container animations
+/// * [AAlign] for alignment-based positioning
 class AFractionallySizedBox extends ImplicitlyPhysicsAnimatedWidget {
   const AFractionallySizedBox({
     super.key,
@@ -1194,7 +1816,7 @@ class AFractionallySizedBox extends ImplicitlyPhysicsAnimatedWidget {
 
 class _AFractionallySizedBoxState
     extends PhysicsAnimatedWidgetState<AFractionallySizedBox>
-    with _RebuildOnTick {
+    with RebuildOnTick {
   AlignmentGeometryTween? _alignment;
   Tween<double>? _widthFactor;
   Tween<double>? _heightFactor;

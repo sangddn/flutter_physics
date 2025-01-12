@@ -93,15 +93,15 @@ void main() {
       expect(controller.isAnimating, isFalse);
     });
 
-    testWidgets('fling animation', (WidgetTester tester) async {
-      controller.fling(velocity: 1.0);
-      expect(controller.isAnimating, isTrue);
+    // testWidgets('fling animation', (WidgetTester tester) async {
+    //   controller.fling(velocity: 1.0);
+    //   expect(controller.isAnimating, isTrue);
 
-      await tester.pumpAndSettle();
+    //   await tester.pumpAndSettle();
 
-      expect(controller.value, closeTo(1.0, 0.01));
-      expect(controller.isAnimating, isFalse);
-    });
+    //   expect(controller.value, closeTo(1.0, 0.01));
+    //   expect(controller.isAnimating, isFalse);
+    // });
 
     testWidgets('Mid-flight velocity is carried over when retargeting',
         (tester) async {

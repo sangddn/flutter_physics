@@ -1,9 +1,158 @@
 part of 'physics_controller.dart';
 
-/// A controller for 2D physics-based animations.
+/// {@template physics_controller_2d}
+/// A controller for 2D physics-based animations that supports both standard curves and physics simulations.
 ///
-/// This is similar to [PhysicsController], but it works with [Simulation2D]
-/// to control animations in 2D space using [Offset] values.
+/// Similar to [PhysicsController], but works with [Simulation2D] to control animations in 2D space
+/// using [Offset] values. Key features include:
+///
+/// * Accepts both standard [Curve]s and [PhysicsSimulation]s (like [Spring])
+/// * Dynamically responds to changes mid-animation when using physics simulations
+/// * Maintains velocity across animation updates
+/// * Drop-in replacement for [AnimationController] in 2D contexts
+///
+/// ## Usage
+///
+/// Create a controller with a [TickerProvider] (usually from [SingleTickerProviderStateMixin]):
+///
+/// ```dart
+/// class _MyWidgetState extends State<MyWidget> with SingleTickerProviderStateMixin {
+///   late final _controller = PhysicsController2D(
+///     vsync: this,
+///     defaultPhysics: Simulation2D(
+///       Spring.elegant, // X-axis physics
+///       Spring.swift,   // Y-axis physics
+///     ),
+///   );
+///
+///   @override
+///   void dispose() {
+///     _controller.dispose();
+///     super.dispose();
+///   }
+/// }
+/// ```
+///
+/// ### Using with Standard Curves
+///
+/// When using standard curves, you must provide a duration either in the constructor
+/// or in animation methods:
+///
+/// ```dart
+/// // In constructor
+/// final controller = PhysicsController2D(
+///   vsync: this,
+///   duration: const Duration(milliseconds: 300),
+///   defaultPhysics: Simulation2D(
+///     Curves.easeOut,
+///     Curves.easeIn,
+///   ),
+/// );
+///
+/// // Or in methods
+/// controller.animateTo(
+///   const Offset(100, 200),
+///   duration: const Duration(milliseconds: 300),
+///   physics: Simulation2D(
+///     Curves.easeOut,
+///     Curves.easeIn,
+///   ),
+/// );
+/// ```
+///
+/// ### Using with Physics Simulations
+///
+/// {@tool snippet}
+/// Physics simulations like [Spring] automatically calculate their duration and
+/// respond naturally to interruptions:
+///
+/// ```dart
+/// class PhysicsCard extends StatefulWidget {
+///   const PhysicsCard({super.key});
+///
+///   @override
+///   State<PhysicsCard> createState() => _PhysicsCardState();
+/// }
+///
+/// class _PhysicsCardState extends State<PhysicsCard> with SingleTickerProviderStateMixin {
+///   late final _controller = PhysicsController2D.unbounded(
+///     vsync: this,
+///     defaultPhysics: Simulation2D(
+///       Spring.elegant,
+///       Spring.elegant,
+///     ),
+///   );
+///
+///   Offset _position = Offset.zero;
+///
+///   void _onPanUpdate(DragUpdateDetails details) {
+///     setState(() {
+///       _position += details.delta;
+///     });
+///     _controller.value = _position;
+///   }
+///
+///   void _onPanEnd(DragEndDetails details) {
+///     // Physics simulation maintains momentum from gesture
+///     _controller.animateTo(
+///       Offset.zero,
+///       velocityDelta: details.velocity.pixelsPerSecond,
+///     );
+///   }
+///
+///   @override
+///   Widget build(BuildContext context) {
+///     return GestureDetector(
+///       onPanUpdate: _onPanUpdate,
+///       onPanEnd: _onPanEnd,
+///       child: AnimatedBuilder(
+///         animation: _controller,
+///         builder: (context, child) {
+///           return Transform.translate(
+///             offset: _controller.value,
+///             child: child,
+///           );
+///         },
+///         child: const Card(
+///           child: FlutterLogo(size: 128),
+///         ),
+///       ),
+///     );
+///   }
+/// }
+/// ```
+/// {@end-tool}
+///
+/// ### Responding to Changes Mid-Animation
+///
+/// Physics simulations maintain momentum when target values change:
+///
+/// ```dart
+/// // Initial animation
+/// controller.animateTo(const Offset(100, 100));
+///
+/// // Later, interrupt with new target
+/// await Future.delayed(const Duration(milliseconds: 100));
+/// controller.animateTo(const Offset(50, 50)); // Maintains current velocity
+/// ```
+///
+/// ## Common Use Cases
+///
+/// * Gesture-driven animations (drag and release)
+/// * 2D transitions and transforms
+/// * Interactive UI elements
+/// * Natural-feeling animations in 2D space
+///
+/// This controller can be used anywhere [AnimationController] is accepted:
+/// [AnimatedBuilder], [SlideTransition], etc.
+///
+/// See also:
+///
+/// * [Simulation2D], for combining physics simulations or curves for 2D motion
+/// * [Spring], a physics simulation that creates natural-feeling animations
+/// * [PhysicsController], the 1D version of this controller
+/// * [AnimationController], Flutter's standard animation controller
+/// {@endtemplate}
 class PhysicsController2D extends Animation<Offset>
     with
         AnimationEagerListenerMixin,
