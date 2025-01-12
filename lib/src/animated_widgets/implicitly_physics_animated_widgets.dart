@@ -512,6 +512,102 @@ class _AContainerState extends PhysicsAnimatedWidgetState<AContainer>
   }
 }
 
+/// A widget that animates changes in size using physics-based animations.
+///
+/// {@macro ImplicitlyPhysicsAnimatedWidget}
+///
+/// {@tool snippet}
+/// This example shows a container that animates its size with spring physics:
+///
+/// ```dart
+/// class _MyWidget extends StatefulWidget {
+///   @override
+///   State<_MyWidget> createState() => _MyWidgetState();
+/// }
+///
+/// class _MyWidgetState extends State<_MyWidget> {
+///   bool _expanded = false;
+///
+///   @override
+///   Widget build(BuildContext context) {
+///     return ASizedBox(
+///       physics: Spring.elegant,
+///       width: _expanded ? 200.0 : 100.0,
+///       height: _expanded ? 200.0 : 100.0,
+///       child: GestureDetector(
+///         onTap: () => setState(() => _expanded = !_expanded),
+///         child: Container(
+///           color: Colors.blue,
+///           child: const Center(child: Text('Tap me!')),
+///         ),
+///       ),
+///     );
+///   }
+/// }
+/// ```
+/// {@end-tool}
+///
+/// See also:
+/// * [AContainer], which can animate size along with other properties
+/// * [SizedBox], which provides non-animated sizing
+class ASizedBox extends ImplicitlyPhysicsAnimatedWidget {
+  const ASizedBox({
+    super.key,
+    this.width,
+    this.height,
+    super.duration,
+    super.physics,
+    this.child,
+    super.onEnd,
+  });
+
+  /// The width to animate to.
+  final double? width;
+
+  /// The height to animate to.
+  final double? height;
+
+  /// The widget below this widget in the tree.
+  final Widget? child;
+
+  @override
+  State<ASizedBox> createState() => _ASizedBoxState();
+}
+
+class _ASizedBoxState extends PhysicsAnimatedWidgetState<ASizedBox>
+    with RebuildOnTick {
+  Tween<double>? _width;
+  Tween<double>? _height;
+
+  @override
+  void forEachTween(TweenVisitor<dynamic> visitor) {
+    _width = visitor(_width, widget.width,
+            (dynamic value) => Tween<double>(begin: value as double))
+        as Tween<double>?;
+    _height = visitor(_height, widget.height,
+            (dynamic value) => Tween<double>(begin: value as double))
+        as Tween<double>?;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: _width?.evaluate(animation),
+      height: _height?.evaluate(animation),
+      child: widget.child,
+    );
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder description) {
+    super.debugFillProperties(description);
+    description.add(DiagnosticsProperty<Tween<double>>('width', _width,
+        defaultValue: null));
+    description.add(DiagnosticsProperty<Tween<double>>('height', _height,
+        defaultValue: null));
+  }
+}
+
 /// Physics-based equivalent of [AnimatedPadding], renamed to [APadding].
 ///
 /// Animates changes in padding using physics-based animations, providing more natural
