@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
-/// A widget that provides better handling of padding, particularly negative values.
+/// {@template better_padding}
+/// A widget that provides better handling of negative padding.
 ///
 /// This widget extends the capabilities of Flutter's standard [Padding] widget by
 /// properly handling negative padding values through the use of [Transform.translate].
@@ -9,8 +10,9 @@ import 'package:flutter/widgets.dart';
 /// This example shows how to use negative padding to extend a child beyond its normal bounds:
 ///
 /// ```dart
+/// // Positive padding implemented as normal Padding.
 /// BetterPadding(
-///   padding: const EdgeInsets.only(left: 20, top: 10), // <- Positive padding implemented as normal Padding.
+///   padding: const EdgeInsets.only(left: 20, top: 10),
 ///   child: Container(
 ///     width: 100,
 ///     height: 100,
@@ -18,8 +20,19 @@ import 'package:flutter/widgets.dart';
 ///   ),
 /// )
 ///
+/// // Negative padding implemented as Transform.translate.
 /// BetterPadding(
-///   padding: const EdgeInsets.only(left: -20, top: -10), // <- Negative padding implemented as Transform.translate.
+///   padding: const EdgeInsets.only(left: -20, top: -10),
+///   child: Container(
+///     width: 100,
+///     height: 100,
+///     color: Colors.blue,
+///   ),
+/// )
+///
+/// // Mixed positive and negative padding is ok
+/// BetterPadding(
+///   padding: const EdgeInsets.only(left: 20, top: -10),
 ///   child: Container(
 ///     width: 100,
 ///     height: 100,
@@ -40,11 +53,21 @@ import 'package:flutter/widgets.dart';
 /// * Layout calculations remain accurate
 /// * Child widgets are positioned correctly
 ///
+/// Drawbacks:
+/// * Transform.translate works after the layout phase, which affects hit testing.
+///
 /// See also:
 /// * [APadding] for physics-based padding animations
 /// * [AContainer] for more general container animations
+/// {@endtemplate}
 class BetterPadding extends StatelessWidget {
-  const BetterPadding({required this.padding, required this.child, super.key});
+  /// Creates a [BetterPadding] widget.
+  /// {@macro better_padding}
+  const BetterPadding({
+    required this.padding,
+    required this.child,
+    super.key,
+  });
 
   final EdgeInsetsGeometry padding;
   final Widget? child;
@@ -60,12 +83,13 @@ class BetterPadding extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectivePadding = padding.resolve(Directionality.of(context));
-    final negativeTop = effectivePadding.top < 0 ? effectivePadding.top : 0;
-    final negativeLeft = effectivePadding.left < 0 ? effectivePadding.left : 0;
+    final negativeTop = effectivePadding.top < 0 ? effectivePadding.top : 0.0;
+    final negativeLeft =
+        effectivePadding.left < 0 ? effectivePadding.left : 0.0;
     final negativeRight =
-        effectivePadding.right < 0 ? effectivePadding.right : 0;
+        effectivePadding.right < 0 ? effectivePadding.right : 0.0;
     final negativeBottom =
-        effectivePadding.bottom < 0 ? effectivePadding.bottom : 0;
+        effectivePadding.bottom < 0 ? effectivePadding.bottom : 0.0;
     final child = Padding(
       padding:
           effectivePadding.clamp(EdgeInsets.zero, EdgeInsetsGeometry.infinity),
@@ -86,7 +110,7 @@ class BetterPadding extends StatelessWidget {
       final y = -negativeTop + -negativeBottom;
 
       return Transform.translate(
-        offset: Offset(x.toDouble(), y.toDouble()),
+        offset: Offset(x, y),
         child: child,
       );
     }
