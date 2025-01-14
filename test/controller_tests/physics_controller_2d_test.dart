@@ -4,7 +4,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_physics/flutter_physics.dart';
 
-import 'matchers/offset_matcher.dart';
+import '../matchers/offset_matcher.dart';
 
 void main() {
   late PhysicsController2D controller;

@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_physics/flutter_physics.dart';
 
-import 'matchers/color_matcher.dart';
+import '../matchers/color_matcher.dart';
 
 void main() {
   // ---------------------------------------------------------------------------
