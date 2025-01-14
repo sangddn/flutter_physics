@@ -232,6 +232,10 @@ class Spring extends PhysicsSimulation {
       );
 
   @override
+  String toString() =>
+      'Spring(description: $description, start: $start, end: $end, initialVelocity: $initialVelocity, tolerance: $tolerance, duration: $duration)';
+
+  @override
   bool operator ==(Object other) =>
       other is Spring &&
       description.damping == other.description.damping &&

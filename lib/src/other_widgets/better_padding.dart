@@ -82,7 +82,7 @@ class BetterPadding extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectivePadding = padding.resolve(Directionality.of(context));
+    final effectivePadding = padding.resolve(Directionality.maybeOf(context));
     final negativeTop = effectivePadding.top < 0 ? effectivePadding.top : 0.0;
     final negativeLeft =
         effectivePadding.left < 0 ? effectivePadding.left : 0.0;

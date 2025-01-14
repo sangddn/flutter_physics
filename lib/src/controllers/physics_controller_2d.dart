@@ -273,6 +273,13 @@ class PhysicsController2D extends Animation<Offset>
   (Simulation, Simulation)? _sims;
   _AnimationDirection _direction;
 
+  /// Recreates the [Ticker] with the new [TickerProvider].
+  void resync(TickerProvider vsync) {
+    final Ticker oldTicker = _ticker!;
+    _ticker = vsync.createTicker(_tick);
+    _ticker!.absorbTicker(oldTicker);
+  }
+
   /// The current position of the animation.
   @override
   Offset get value => _value;

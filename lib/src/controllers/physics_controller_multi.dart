@@ -305,6 +305,13 @@ class PhysicsControllerMulti extends Animation<UnmodifiableListView<double>>
   final List<Simulation> _sims = [];
   _AnimationDirection _direction;
 
+  /// Recreates the [Ticker] with the new [TickerProvider].
+  void resync(TickerProvider vsync) {
+    final Ticker oldTicker = _ticker!;
+    _ticker = vsync.createTicker(_tick);
+    _ticker!.absorbTicker(oldTicker);
+  }
+
   /// The current position of the animation in N-dimensional space.
   ///
   /// Returns an unmodifiable list of length [dimensions] representing
