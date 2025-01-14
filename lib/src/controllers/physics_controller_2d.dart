@@ -432,7 +432,7 @@ class PhysicsController2D extends Animation<Offset>
           durationScale: durationScale,
           initialVelocity: durationScale == null
               ? (velocityOverride?.dx ??
-                  velocity.dx + xPhysics.initialVelocity + velocityDelta.dx)
+                  (velocity.dx + xPhysics.initialVelocity + velocityDelta.dx))
               : null,
         ),
         (physics.yPhysics as PhysicsSimulation).copyWith(

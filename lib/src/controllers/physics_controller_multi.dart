@@ -488,22 +488,27 @@ class PhysicsControllerMulti extends Animation<UnmodifiableListView<double>>
 
     if (physics.isPhysicsBased()) {
       return _startSimulations(
-        physics
-            .indexedMap(
-              (index, p) => (p as PhysicsSimulation).copyWith(
-                start: _value[index],
-                end: target[index],
-                duration: duration,
-                durationScale: durationScale,
-                initialVelocity: durationScale == null
-                    ? (velocityOverride?[index] ??
-                        velocity[index] +
-                            p.initialVelocity +
-                            (velocityDelta?[index] ?? 0.0))
-                    : null,
-              ),
-            )
-            .toList(),
+        List.generate(
+          physics.length,
+          (index) {
+            if (_value[index] == target[index]) {
+              return _NoSimulation(_value[index]);
+            }
+            final p = physics![index] as PhysicsSimulation;
+            return p.copyWith(
+              start: _value[index],
+              end: target[index],
+              duration: duration,
+              durationScale: durationScale,
+              initialVelocity: durationScale == null
+                  ? (velocityOverride?[index] ??
+                      (velocity[index] +
+                          p.initialVelocity +
+                          (velocityDelta?[index] ?? 0.0)))
+                  : null,
+            );
+          },
+        ),
       );
     }
 

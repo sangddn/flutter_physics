@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../controllers/physics_controller.dart';
@@ -116,6 +117,14 @@ class PhysicsBuilderState extends State<PhysicsBuilder>
   @override
   void didUpdateWidget(PhysicsBuilder oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // We don't need to update the physics, as it's passed to the controller
+    // in [animateTo] calls.
+    if (widget.duration != oldWidget.duration) {
+      controller.duration = widget.duration;
+    }
+    if (widget.reverseDuration != oldWidget.reverseDuration) {
+      controller.reverseDuration = widget.reverseDuration;
+    }
     if (widget.value != oldWidget.value) {
       widget.onValueChanged?.call(widget.value);
       controller.animateTo(
@@ -309,6 +318,14 @@ class PhysicsBuilder2DState extends State<PhysicsBuilder2D>
   @override
   void didUpdateWidget(PhysicsBuilder2D oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // We don't need to update the physics, as it's passed to the controller
+    // in [animateTo] calls.
+    if (widget.duration != oldWidget.duration) {
+      controller.duration = widget.duration;
+    }
+    if (widget.reverseDuration != oldWidget.reverseDuration) {
+      controller.reverseDuration = widget.reverseDuration;
+    }
     if (widget.value != oldWidget.value) {
       widget.onValueChanged?.call(widget.value);
       controller.animateTo(
@@ -316,6 +333,205 @@ class PhysicsBuilder2DState extends State<PhysicsBuilder2D>
         velocityDelta: widget.velocityDelta,
         velocityOverride: widget.velocityOverride,
         physics: _getPhysics(),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: controller,
+        builder: (context, child) =>
+            widget.builder(context, controller.value, child),
+        child: widget.child,
+      );
+}
+
+/// A widget that smoothly animates between different N-dimensional positions using
+/// physics-based animations.
+///
+/// This widget provides a simplified way to create physics-based animations for
+/// N-dimensional movement, allowing independent physics simulations for each dimension.
+///
+/// {@template physics_builder_multi}
+/// When the [value] changes, the widget will animate to the new position using
+/// the specified physics simulations. You can provide different physics for each
+/// dimension using [physics], or use [physicsForAllDimensions] to apply the same
+/// physics to all dimensions.
+///
+/// The animation is constrained between [lowerBound] and [upperBound], which
+/// define the valid range for each dimension.
+///
+/// {@tool snippet}
+/// This example shows how to create a 3D animation with different physics for each axis:
+///
+/// ```dart
+/// PhysicsBuilderMulti(
+///   dimensions: 3,
+///   value: [x, y, z],
+///   physics: [
+///     Spring.gentle,   // X-axis physics
+///     Spring.bouncy,   // Y-axis physics
+///     Spring.elegant,  // Z-axis physics
+///   ],
+///   // physicsForAllDimensions: Curves.ease, // Or set a physics for all dimensions
+///   builder: (context, values, child) => Transform(
+///     transform: Matrix4.translation(
+///       Vector3(values[0], values[1], values[2]),
+///     ),
+///     child: child,
+///   ),
+///   child: const FlutterLogo(),
+/// )
+/// ```
+/// {@end-tool}
+/// {@endtemplate}
+class PhysicsBuilderMulti extends StatefulWidget {
+  /// Creates a physics-based animation for N-dimensional values.
+  /// {@macro physics_builder_multi}
+  const PhysicsBuilderMulti({
+    required this.dimensions,
+    this.physics,
+    this.physicsForAllDimensions,
+    required this.value,
+    this.lowerBound,
+    this.upperBound,
+    this.velocityDelta,
+    this.velocityOverride,
+    this.duration,
+    this.reverseDuration,
+    this.onValueChanged,
+    this.onEnd,
+    required this.builder,
+    this.child,
+    super.key,
+  })  : assert(
+          physics == null || physics.length == dimensions,
+          'Physics must be provided for all dimensions or use physicsForAllDimensions',
+        ),
+        assert(
+          value.length == dimensions,
+          'Value must be provided for all dimensions',
+        ),
+        assert(
+          lowerBound == null || lowerBound.length == dimensions,
+          'Lower bound must be provided for all dimensions',
+        ),
+        assert(
+          upperBound == null || upperBound.length == dimensions,
+          'Upper bound must be provided for all dimensions',
+        ),
+        assert(
+          velocityDelta == null || velocityDelta.length == dimensions,
+          'Velocity delta must be provided for all dimensions',
+        ),
+        assert(
+          velocityOverride == null || velocityOverride.length == dimensions,
+          'Velocity override must be provided for all dimensions',
+        );
+
+  /// The number of dimensions to animate.
+  final int dimensions;
+
+  /// The physics simulation to use for each dimension.
+  ///
+  /// If null, [physicsForAllDimensions] will be used. If both are null,
+  /// [Spring.elegant] will be used as the default for all dimensions.
+  final List<Physics>? physics;
+
+  /// The physics simulation to use for all dimensions.
+  ///
+  /// If null and [physics] is also null, [Spring.elegant] will be used.
+  final Physics? physicsForAllDimensions;
+
+  /// The target values to animate to.
+  final List<double> value;
+
+  /// The minimum values for the animation.
+  final List<double>? lowerBound;
+
+  /// The maximum values for the animation.
+  final List<double>? upperBound;
+
+  /// The velocity delta to apply to the animation when [value] changes.
+  final List<double>? velocityDelta;
+
+  /// The velocity override to apply to the animation when [value] changes.
+  final List<double>? velocityOverride;
+
+  /// Optional fixed duration for the animation.
+  final Duration? duration;
+
+  /// Optional fixed duration for the reverse animation.
+  final Duration? reverseDuration;
+
+  /// Called when the target [value] changes.
+  final ValueChanged<List<double>>? onValueChanged;
+
+  /// Called when the animation completes.
+  final VoidCallback? onEnd;
+
+  /// Builder function that constructs the widget tree based on the current
+  /// animated values.
+  final ValueWidgetBuilder<List<double>> builder;
+
+  /// Optional child widget that will be passed to [builder].
+  final Widget? child;
+
+  @override
+  State<PhysicsBuilderMulti> createState() => PhysicsBuilderMultiState();
+}
+
+class PhysicsBuilderMultiState extends State<PhysicsBuilderMulti>
+    with SingleTickerProviderStateMixin {
+  late final controller = PhysicsControllerMulti(
+    dimensions: widget.dimensions,
+    value: widget.value,
+    lowerBound: widget.lowerBound,
+    upperBound: widget.upperBound,
+    duration: widget.duration,
+    reverseDuration: widget.reverseDuration,
+    vsync: this,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed ||
+          status == AnimationStatus.dismissed) {
+        widget.onEnd?.call();
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(PhysicsBuilderMulti oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // We don't need to update the physics, as it's passed to the controller
+    // in [animateTo] calls.
+    if (widget.duration != oldWidget.duration) {
+      controller.duration = widget.duration;
+    }
+    if (widget.reverseDuration != oldWidget.reverseDuration) {
+      controller.reverseDuration = widget.reverseDuration;
+    }
+    if (!listEquals(widget.value, oldWidget.value)) {
+      widget.onValueChanged?.call(widget.value);
+      controller.animateTo(
+        widget.value,
+        velocityDelta: widget.velocityDelta,
+        velocityOverride: widget.velocityOverride,
+        physics: widget.physics ??
+            (widget.physicsForAllDimensions == null
+                ? null
+                : List.filled(
+                    widget.dimensions, widget.physicsForAllDimensions!)),
       );
     }
   }

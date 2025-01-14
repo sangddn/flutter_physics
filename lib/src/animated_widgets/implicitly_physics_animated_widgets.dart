@@ -92,7 +92,7 @@ import '../other_widgets/other_widgets.dart';
 ///
 /// This widget is designed for:
 /// * Creating simple, smooth, natural-feeling transitions automatically
-/// * Ease of use: Users do not need to worry about managing multiple controllers
+/// * Ease of use: Users do not need to worry about managing a controller
 ///
 /// See also:
 /// * [AValue] - An implicitly animated widget that provides implicit animation
@@ -169,9 +169,7 @@ abstract class ImplicitlyPhysicsAnimatedWidget extends StatefulWidget {
   final Physics? physics;
 
   /// {@template ImplicitlyPhysicsAnimatedWidget.onEnd}
-  /// A callback that is called when an animation completes. Note that if
-  /// there are multiple controllers, this will be called whenever any of the
-  /// controllers completes.
+  /// A callback that is called when an animation completes.
   ///
   /// This callback is specifically invoked in two scenarios:
   /// * When a forward animation reaches its target value

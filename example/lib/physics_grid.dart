@@ -18,7 +18,6 @@ class PhysicsGrid extends StatefulWidget {
 class _PhysicsGridState extends State<PhysicsGrid>
     with SingleTickerProviderStateMixin {
   // Tracks which cell is being dragged.
-  // Tracks which cell is being dragged.
   int activeRow = 0, activeCol = 0;
   Offset dragOffset = Offset.zero; // actual offset of the dragged cell
 
