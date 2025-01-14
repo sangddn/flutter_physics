@@ -1,16 +1,17 @@
-import 'dart:ui' as ui;
-
 import 'package:flutter/widgets.dart';
 
 import '../controllers/physics_controller.dart';
 import '../simulations/physics_simulations.dart';
+
+typedef Normalize<T> = List<double> Function(T);
+typedef Denormalize<T> = T Function(List<double>);
 
 /// A widget that smoothly animates between different values of type [T] whenever
 /// the value changes, using either standard curves or physics-based animations.
 ///
 /// This widget provides a flexible way to animate various types of values with
 /// built-in support for common Flutter types through named constructors:
-///
+/// 
 /// * [AValue.double] for animating numeric values
 /// * [AValue.color] for animating colors
 /// * [AValue.size] for animating sizes
@@ -20,30 +21,8 @@ import '../simulations/physics_simulations.dart';
 ///
 /// {@template a_state}
 /// When using a standard [Curve], you must provide a [duration]. When using a
-/// [PhysicsSimulation], the duration is determined by the simulation itself.
-///
-/// The [normalize] parameter is required to convert your value to a double between
-/// [lowerBound] and [upperBound] for animation purposes. This allows the widget to
-/// properly animate between any type of value.
-///
-/// {@tool snippet}
-/// This example shows how to animate a color with spring physics:
-///
-/// ```dart
-/// AValue.color(
-///   value: _color,
-///   physics: Spring.withDamping(
-///     mass: 1.0,
-///     damping: 0.7,
-///   ),
-///   normalize: (color) => color.opacity,
-///   builder: (context, value, child) => Container(
-///     color: value,
-///     child: child,
-///   ),
-/// )
-/// ```
-/// {@end-tool}
+/// [PhysicsSimulation], the duration can be left `null` so the simulation itself
+/// determines the duration.
 ///
 /// {@tool snippet}
 /// This example shows how to animate a custom value using the default constructor:
@@ -51,11 +30,30 @@ import '../simulations/physics_simulations.dart';
 /// ```dart
 /// AValue<MyCustomType>(
 ///   value: _customValue,
-///   lerp: (a, b, t) => MyCustomType.lerp(a, b, t),
-///   normalize: (value) => value.progress,
+///   normalizeOutputLength: 1,
+///   normalize: (value) => [value.progress],
+///   denormalize: (value) => MyCustomType(progress: value[0]),
 ///   physics: Spring.snap,
 ///   builder: (context, value, child) => CustomWidget(
 ///     value: value,
+///     child: child,
+///   ),
+/// )
+/// ```
+/// {@end-tool}
+///
+/// {@tool snippet}
+/// This example shows how to animate a color with a spring physics simulation:
+/// 
+/// ```dart
+/// AValue.color(
+///   value: _color,
+///   physics: Spring.withDamping(
+///     mass: 1.0,
+///     damping: 0.7,
+///   ),
+///   builder: (context, value, child) => Container(
+///     color: value,
 ///     child: child,
 ///   ),
 /// )
@@ -67,15 +65,15 @@ import '../simulations/physics_simulations.dart';
 ///  * [TweenAnimationBuilder], which provides similar functionality but only with curve-based animations
 ///  * [PhysicsSimulation], the base class for physics-based animations
 ///  * [Spring], a common physics simulation for natural-feeling animations
-///  * [ASize], a specialized version for size animations
+///  * [ASize], a specialized version for size animations that animates width and height
+///    at layout
 /// {@endtemplate}
 class AValue<T> extends StatefulWidget {
   const AValue({
     required this.value,
-    required this.lerp,
-    this.lowerBound = double.negativeInfinity,
-    this.upperBound = double.infinity,
+    required this.normalizeOutputLength,
     required this.normalize,
+    required this.denormalize,
     this.physics,
     this.duration,
     this.reverseDuration,
@@ -90,9 +88,6 @@ class AValue<T> extends StatefulWidget {
   /// {@macro a_state}
   const AValue.double({
     required this.value,
-    this.lowerBound = double.negativeInfinity,
-    this.upperBound = double.infinity,
-    required this.normalize,
     this.physics,
     this.duration,
     this.reverseDuration,
@@ -101,7 +96,9 @@ class AValue<T> extends StatefulWidget {
     required this.builder,
     this.child,
     super.key,
-  }) : lerp = AValue.lerpDouble as T Function(T, T, double);
+  })  : normalize = AValue.normalizeDouble as List<double> Function(T),
+        denormalize = AValue.denormalizeDouble as T Function(List<double>),
+        normalizeOutputLength = 1;
 
   /// Creates a widget that animates between colors.
   /// {@macro a_state}
@@ -109,16 +106,15 @@ class AValue<T> extends StatefulWidget {
     required this.value,
     this.physics,
     this.duration,
-    this.lowerBound = double.negativeInfinity,
-    this.upperBound = double.infinity,
-    required this.normalize,
     this.reverseDuration,
     this.onValueChanged,
     this.onEnd,
     required this.builder,
     this.child,
     super.key,
-  }) : lerp = AValue.lerpColor as T Function(T, T, double);
+  })  : normalize = AValue.normalizeColor as Normalize<T>,
+        denormalize = AValue.denormalizeColor as Denormalize<T>,
+        normalizeOutputLength = 4;
 
   /// Creates a widget that animates between sizes.
   /// {@macro a_state}
@@ -127,15 +123,14 @@ class AValue<T> extends StatefulWidget {
     this.physics,
     this.duration,
     this.reverseDuration,
-    this.lowerBound = double.negativeInfinity,
-    this.upperBound = double.infinity,
-    required this.normalize,
     this.onValueChanged,
     this.onEnd,
     required this.builder,
     this.child,
     super.key,
-  }) : lerp = AValue.lerpSize as T Function(T, T, double);
+  })  : normalize = AValue.normalizeSize as Normalize<T>,
+        denormalize = AValue.denormalizeSize as Denormalize<T>,
+        normalizeOutputLength = 2;
 
   /// Creates a widget that animates between positions.
   /// {@macro a_state}
@@ -144,15 +139,14 @@ class AValue<T> extends StatefulWidget {
     this.physics,
     this.duration,
     this.reverseDuration,
-    this.lowerBound = double.negativeInfinity,
-    this.upperBound = double.infinity,
-    required this.normalize,
     this.onValueChanged,
     this.onEnd,
     required this.builder,
     this.child,
     super.key,
-  }) : lerp = AValue.lerpOffset as T Function(T, T, double);
+  })  : normalize = AValue.normalizeOffset as Normalize<T>,
+        denormalize = AValue.denormalizeOffset as Denormalize<T>,
+        normalizeOutputLength = 2;
 
   /// Creates a widget that animates between rectangles.
   /// {@macro a_state}
@@ -161,15 +155,14 @@ class AValue<T> extends StatefulWidget {
     this.physics,
     this.duration,
     this.reverseDuration,
-    this.lowerBound = double.negativeInfinity,
-    this.upperBound = double.infinity,
-    required this.normalize,
     this.onValueChanged,
     this.onEnd,
     required this.builder,
     this.child,
     super.key,
-  }) : lerp = AValue.lerpRect as T Function(T, T, double);
+  })  : normalize = AValue.normalizeRect as Normalize<T>,
+        denormalize = AValue.denormalizeRect as Denormalize<T>,
+        normalizeOutputLength = 4;
 
   /// Creates a widget that animates between alignments.
   /// {@macro a_state}
@@ -178,21 +171,17 @@ class AValue<T> extends StatefulWidget {
     this.physics,
     this.duration,
     this.reverseDuration,
-    this.lowerBound = double.negativeInfinity,
-    this.upperBound = double.infinity,
-    required this.normalize,
     this.onValueChanged,
     this.onEnd,
     required this.builder,
     this.child,
     super.key,
-  }) : lerp = AValue.lerpAlignment as T Function(T, T, double);
+  })  : normalize = AValue.normalizeAlignment as Normalize<T>,
+        denormalize = AValue.denormalizeAlignment as Denormalize<T>,
+        normalizeOutputLength = 2;
 
   /// The current value to animate to.
   final T value;
-
-  /// Function that defines how to interpolate between two values of type [T].
-  final T Function(T, T, double) lerp;
 
   /// Called whenever the value changes.
   final ValueChanged<T>? onValueChanged;
@@ -200,14 +189,14 @@ class AValue<T> extends StatefulWidget {
   /// Called when the animation completes.
   final VoidCallback? onEnd;
 
-  /// The minimum value for the animation's progress.
-  final double lowerBound;
+  /// Converts a value of type [T] to a list of double values.
+  final Normalize<T> normalize;
 
-  /// The maximum value for the animation's progress.
-  final double upperBound;
+  /// Converts a list of double values back to a value of type [T].
+  final Denormalize<T> denormalize;
 
-  /// Converts a value of type [T] to a progress value between [lowerBound] and [upperBound].
-  final double Function(T) normalize;
+  /// The number of dimensions in the output of [normalize].
+  final int normalizeOutputLength;
 
   /// The physics simulation or curve to use for the animation.
   ///
@@ -231,19 +220,30 @@ class AValue<T> extends StatefulWidget {
   /// Optional child widget that will be passed to [builder].
   final Widget? child;
 
-  static double lerpDouble(double a, double b, double t) =>
-      ui.lerpDouble(a, b, t)!;
-  static Color lerpColor(Color a, Color b, double t) => Color.lerp(a, b, t)!;
-  static Size lerpSize(Size a, Size b, double t) => Size.lerp(a, b, t)!;
-  static Offset lerpOffset(Offset a, Offset b, double t) =>
-      Offset.lerp(a, b, t)!;
-  static Rect lerpRect(Rect a, Rect b, double t) => Rect.lerp(a, b, t)!;
-  static AlignmentGeometry lerpAlignment(
-    AlignmentGeometry a,
-    AlignmentGeometry b,
-    double t,
-  ) =>
-      AlignmentGeometry.lerp(a, b, t)!;
+  static List<double> normalizeDouble(double value) => [value];
+  static double denormalizeDouble(List<double> value) => value[0];
+  static List<double> normalizeColor(Color value) =>
+      [value.r, value.g, value.b, value.a];
+  static Color denormalizeColor(List<double> value) => Color.from(
+        alpha: value[3],
+        red: value[0],
+        green: value[1],
+        blue: value[2],
+      );
+  static List<double> normalizeSize(Size value) => [value.width, value.height];
+  static Size denormalizeSize(List<double> value) => Size(value[0], value[1]);
+  static List<double> normalizeOffset(Offset value) => [value.dx, value.dy];
+  static Offset denormalizeOffset(List<double> value) =>
+      Offset(value[0], value[1]);
+  static List<double> normalizeRect(Rect value) =>
+      [value.left, value.top, value.right, value.bottom];
+  static Rect denormalizeRect(List<double> value) => Rect.fromPoints(
+        Offset(value[0], value[1]),
+        Offset(value[2], value[3]),
+      );
+  static List<double> normalizeAlignment(Alignment value) => [value.x, value.y];
+  static Alignment denormalizeAlignment(List<double> value) =>
+      Alignment(value[0], value[1]);
 
   @override
   State<AValue<T>> createState() => _AValueState<T>();
@@ -251,30 +251,22 @@ class AValue<T> extends StatefulWidget {
 
 class _AValueState<T> extends State<AValue<T>>
     with SingleTickerProviderStateMixin {
-  late final _controller = PhysicsController(
-    vsync: this,
-    value: widget.normalize(widget.value),
-    lowerBound: widget.lowerBound,
-    upperBound: widget.upperBound,
-    defaultPhysics: widget.physics,
-    duration: widget.duration,
-    reverseDuration: widget.reverseDuration,
-  );
-
-  late T _previousValue = _value;
-  late T _value = widget.value;
+  late PhysicsControllerMulti _controller;
 
   @override
   void initState() {
     super.initState();
     assert(
-      widget.lowerBound <= widget.upperBound,
-      'Lower bound must be less than or equal to upper bound',
-    );
-    assert(
-      widget.normalize(widget.value) >= widget.lowerBound &&
-          widget.normalize(widget.value) <= widget.upperBound,
+      widget.normalize(widget.value).length == widget.normalizeOutputLength,
       'Value must be within the bounds',
+    );
+    _controller = PhysicsControllerMulti.unbounded(
+      vsync: this,
+      dimensions: widget.normalizeOutputLength,
+      value: widget.normalize(widget.value),
+      defaultPhysicsForAllDimensions: widget.physics,
+      duration: widget.duration,
+      reverseDuration: widget.reverseDuration,
     );
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed ||
@@ -287,11 +279,31 @@ class _AValueState<T> extends State<AValue<T>>
   @override
   void didUpdateWidget(AValue<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.normalizeOutputLength != oldWidget.normalizeOutputLength) {
+      _controller.dispose();
+      _controller = PhysicsControllerMulti.unbounded(
+        vsync: this,
+        dimensions: widget.normalizeOutputLength,
+        value: widget.normalize(widget.value),
+        defaultPhysicsForAllDimensions: widget.physics,
+        duration: widget.duration,
+        reverseDuration: widget.reverseDuration,
+      );
+    }
+    if (widget.duration != oldWidget.duration ||
+        widget.reverseDuration != oldWidget.reverseDuration) {
+      _controller.duration = widget.duration;
+      _controller.reverseDuration = widget.reverseDuration;
+    }
+    if (widget.physics != oldWidget.physics) {
+      _controller.defaultPhysics = List.filled(
+        widget.normalizeOutputLength,
+        widget.physics ?? Spring.elegant,
+      );
+    }
     if (widget.value != oldWidget.value) {
       widget.onValueChanged?.call(widget.value);
-      _previousValue = oldWidget.value;
-      _value = widget.value;
-      _controller.animateTo(widget.normalize(_value));
+      _controller.animateTo(widget.normalize(widget.value));
     }
   }
 
@@ -306,7 +318,8 @@ class _AValueState<T> extends State<AValue<T>>
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
-        final value = widget.lerp(_previousValue, _value, _controller.value);
+        assert(_controller.value.length == widget.normalizeOutputLength);
+        final value = widget.denormalize(_controller.value);
         return widget.builder(context, value, child);
       },
       child: widget.child,
