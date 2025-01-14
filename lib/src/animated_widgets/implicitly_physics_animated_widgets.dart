@@ -809,12 +809,12 @@ class _AContainerState extends PhysicsAnimatedWidgetBaseState<AContainer> {
         decoration: _decoration?.evaluate(animation),
         foregroundDecoration: _foregroundDecoration?.evaluate(animation),
         alignment: a,
-        constraints: _constraints?.evaluate(animation),
+        constraints: _constraints?.evaluate(animation).normalize(),
         transform: _transform?.evaluate(animation),
         transformAlignment: ta,
         clipBehavior: widget.clipBehavior,
-        width: evaluate(_width),
-        height: evaluate(_height),
+        width: evaluate(_width)?.clamp(0, double.infinity),
+        height: evaluate(_height)?.clamp(0, double.infinity),
         child: BetterPadding(
           padding: p ?? EdgeInsets.zero,
           child: widget.child,
@@ -873,8 +873,8 @@ class ASizedBox extends ImplicitlyPhysicsAnimatedWidget {
     this.height,
     super.duration,
     super.physics,
-    this.child,
     super.onEnd,
+    this.child,
   });
 
   /// The width to animate to.
