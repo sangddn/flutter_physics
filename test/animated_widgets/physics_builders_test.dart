@@ -127,24 +127,25 @@ void main() {
       double currentValue = 0.0;
 
       Widget widget(double currentValue) => StatefulBuilder(
-        builder: (context, setState) {
-          return MaterialApp(
-            home: PhysicsBuilder(
-              value: currentValue,
-              physics: Spring(
-                description: SpringDescription(
-                  mass: 1.0,
-                  stiffness: 50.0, // Lower stiffness for more visible motion
-                  damping: 4.0, // Lower damping for more visible motion
+            builder: (context, setState) {
+              return MaterialApp(
+                home: PhysicsBuilder(
+                  value: currentValue,
+                  physics: Spring(
+                    description: SpringDescription(
+                      mass: 1.0,
+                      stiffness:
+                          50.0, // Lower stiffness for more visible motion
+                      damping: 4.0, // Lower damping for more visible motion
+                    ),
+                  ),
+                  builder: (context, value, child) {
+                    return Container();
+                  },
                 ),
-              ),
-              builder: (context, value, child) {
-                return Container();
-              },
-            ),
+              );
+            },
           );
-        },
-      );
 
       await tester.pumpWidget(widget(currentValue));
 
@@ -272,31 +273,32 @@ void main() {
       Offset currentOffset = Offset.zero;
 
       Widget widget(Offset currentOffset) => StatefulBuilder(
-        builder: (context, setState) {
-          return MaterialApp(
-            home: PhysicsBuilder2D(
-              value: currentOffset,
-              xPhysics: Spring(
-                description: SpringDescription(
-                  mass: 1.0,
-                  stiffness: 50.0, // Lower stiffness for more visible motion
-                  damping: 4.0, // Lower damping for more visible motion
+            builder: (context, setState) {
+              return MaterialApp(
+                home: PhysicsBuilder2D(
+                  value: currentOffset,
+                  xPhysics: Spring(
+                    description: SpringDescription(
+                      mass: 1.0,
+                      stiffness:
+                          50.0, // Lower stiffness for more visible motion
+                      damping: 4.0, // Lower damping for more visible motion
+                    ),
+                  ),
+                  yPhysics: Spring(
+                    description: SpringDescription(
+                      mass: 1.0,
+                      stiffness: 50.0,
+                      damping: 4.0,
+                    ),
+                  ),
+                  builder: (context, value, child) {
+                    return Container();
+                  },
                 ),
-              ),
-              yPhysics: Spring(
-                description: SpringDescription(
-                  mass: 1.0,
-                  stiffness: 50.0,
-                  damping: 4.0,
-                ),
-              ),
-              builder: (context, value, child) {
-                return Container();
-              },
-            ),
+              );
+            },
           );
-        },
-      );
 
       await tester.pumpWidget(widget(currentOffset));
 

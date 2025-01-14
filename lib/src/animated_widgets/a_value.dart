@@ -11,7 +11,7 @@ typedef Denormalize<T> = T Function(List<double>);
 ///
 /// This widget provides a flexible way to animate various types of values with
 /// built-in support for common Flutter types through named constructors:
-/// 
+///
 /// * [AValue.double] for animating numeric values
 /// * [AValue.color] for animating colors
 /// * [AValue.size] for animating sizes
@@ -44,7 +44,7 @@ typedef Denormalize<T> = T Function(List<double>);
 ///
 /// {@tool snippet}
 /// This example shows how to animate a color with a spring physics simulation:
-/// 
+///
 /// ```dart
 /// AValue.color(
 ///   value: _color,
