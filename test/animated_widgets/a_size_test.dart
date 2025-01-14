@@ -1,4 +1,3 @@
-import 'package:flutter/rendering.dart' hide RenderAnimatedSizeState;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_physics/flutter_physics.dart';
