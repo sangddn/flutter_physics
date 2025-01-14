@@ -1,5 +1,3 @@
-import 'dart:ui' as ui;
-
 import 'package:flutter/widgets.dart';
 
 import '../controllers/physics_controller.dart';
@@ -89,12 +87,12 @@ class PhysicsBuilder extends StatefulWidget {
   final Widget? child;
 
   @override
-  State<PhysicsBuilder> createState() => _PhysicsBuilderState();
+  State<PhysicsBuilder> createState() => PhysicsBuilderState();
 }
 
-class _PhysicsBuilderState extends State<PhysicsBuilder>
+class PhysicsBuilderState extends State<PhysicsBuilder>
     with SingleTickerProviderStateMixin {
-  late final _controller = PhysicsController(
+  late final controller = PhysicsController(
     vsync: this,
     value: widget.value,
     lowerBound: widget.lowerBound,
@@ -104,13 +102,10 @@ class _PhysicsBuilderState extends State<PhysicsBuilder>
     reverseDuration: widget.reverseDuration,
   );
 
-  late double _previousValue = _value;
-  late double _value = widget.value;
-
   @override
   void initState() {
     super.initState();
-    _controller.addStatusListener((status) {
+    controller.addStatusListener((status) {
       if (status == AnimationStatus.completed ||
           status == AnimationStatus.dismissed) {
         widget.onEnd?.call();
@@ -123,11 +118,8 @@ class _PhysicsBuilderState extends State<PhysicsBuilder>
     super.didUpdateWidget(oldWidget);
     if (widget.value != oldWidget.value) {
       widget.onValueChanged?.call(widget.value);
-      _previousValue = oldWidget.value;
-      _value = widget.value;
-      _controller.value = _previousValue;
-      _controller.animateTo(
-        _value,
+      controller.animateTo(
+        widget.value,
         velocityDelta: widget.velocityDelta,
         velocityOverride: widget.velocityOverride,
         physics: widget.physics,
@@ -137,18 +129,16 @@ class _PhysicsBuilderState extends State<PhysicsBuilder>
 
   @override
   void dispose() {
-    _controller.dispose();
+    controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        final value = ui.lerpDouble(_previousValue, _value, _controller.value)!;
-        return widget.builder(context, value, child);
-      },
+      animation: controller,
+      builder: (context, child) =>
+          widget.builder(context, controller.value, child),
       child: widget.child,
     );
   }
@@ -286,12 +276,12 @@ class PhysicsBuilder2D extends StatefulWidget {
   final Widget? child;
 
   @override
-  State<PhysicsBuilder2D> createState() => _PhysicsBuilder2DState();
+  State<PhysicsBuilder2D> createState() => PhysicsBuilder2DState();
 }
 
-class _PhysicsBuilder2DState extends State<PhysicsBuilder2D>
+class PhysicsBuilder2DState extends State<PhysicsBuilder2D>
     with SingleTickerProviderStateMixin {
-  late final _controller = PhysicsController2D(
+  late final controller = PhysicsController2D(
     vsync: this,
     value: widget.value,
     duration: widget.duration,
@@ -308,7 +298,7 @@ class _PhysicsBuilder2DState extends State<PhysicsBuilder2D>
   @override
   void initState() {
     super.initState();
-    _controller.addStatusListener((status) {
+    controller.addStatusListener((status) {
       if (status == AnimationStatus.completed ||
           status == AnimationStatus.dismissed) {
         widget.onEnd?.call();
@@ -321,8 +311,7 @@ class _PhysicsBuilder2DState extends State<PhysicsBuilder2D>
     super.didUpdateWidget(oldWidget);
     if (widget.value != oldWidget.value) {
       widget.onValueChanged?.call(widget.value);
-      _controller.value = oldWidget.value;
-      _controller.animateTo(
+      controller.animateTo(
         widget.value,
         velocityDelta: widget.velocityDelta,
         velocityOverride: widget.velocityOverride,
@@ -333,15 +322,15 @@ class _PhysicsBuilder2DState extends State<PhysicsBuilder2D>
 
   @override
   void dispose() {
-    _controller.dispose();
+    controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-        animation: _controller,
+        animation: controller,
         builder: (context, child) =>
-            widget.builder(context, _controller.value, child),
+            widget.builder(context, controller.value, child),
         child: widget.child,
       );
 }
