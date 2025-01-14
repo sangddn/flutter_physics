@@ -264,10 +264,10 @@ class PhysicsController2D extends Animation<Offset>
   final Offset upperBound;
 
   /// The duration of the animation.
-  final Duration? duration;
+  Duration? duration;
 
   /// The duration of the animation when reversing.
-  final Duration? reverseDuration;
+  Duration? reverseDuration;
 
   Ticker? _ticker;
   (Simulation, Simulation)? _sims;
@@ -363,13 +363,14 @@ class PhysicsController2D extends Animation<Offset>
     Offset velocityDelta = Offset.zero,
     Offset? velocityOverride,
   }) {
+    physics ??= defaultPhysics;
     assert(
       _ticker != null,
       'PhysicsController2D.animateTo() called after PhysicsController2D.dispose()\n'
       'PhysicsController2D methods should not be used after calling dispose.',
     );
     assert(
-      physics is PhysicsSimulation ||
+      physics.isPhysicsBased() ||
           (velocityOverride == null && velocityDelta == Offset.zero),
       'VelocityDelta and VelocityOverride are only supported when physics is a PhysicsSimulation.',
     );
@@ -412,8 +413,6 @@ class PhysicsController2D extends Animation<Offset>
     }
 
     final velocity = stop();
-
-    physics ??= defaultPhysics;
 
     if (physics.isPhysicsBased()) {
       final xPhysics = physics.xPhysics as PhysicsSimulation;
