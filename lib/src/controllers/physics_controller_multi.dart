@@ -253,24 +253,24 @@ class PhysicsControllerMulti extends Animation<UnmodifiableListView<double>>
   ///
   /// Must contain exactly [dimensions] number of physics simulations.
   set defaultPhysics(List<Physics> physics) {
-    final currentSims = _sims;
+    assert(physics.length == dimensions,
+        "Physics must be provided for all dimensions");
+    final currentSims = List.of(_sims);
     final shouldUpdate = !listEquals(_defaultPhysics, physics) &&
+        currentSims.isNotEmpty &&
         currentSims.isPhysicsBased() &&
         physics.isPhysicsBased();
-    _defaultPhysics = physics;
+    _defaultPhysics = List.of(physics);
     if (shouldUpdate) {
       final velocity = stop();
-      final currents = _sims.cast<PhysicsSimulation>();
-      final news = physics.cast<PhysicsSimulation>();
-      final effectiveSims = news
-          .indexedMap(
-            (i, s) => s.copyWith(
-              start: _value[i],
-              end: currents[i].end,
-              initialVelocity: velocity[i],
-            ),
-          )
-          .toList();
+      final effectiveSims = List<Simulation>.generate(
+        dimensions,
+        (i) => (physics[i] as PhysicsSimulation).copyWith(
+          start: _value[i],
+          end: (currentSims[i] as PhysicsSimulation).end,
+          initialVelocity: velocity[i],
+        ),
+      );
       _startSimulations(effectiveSims);
     }
   }
@@ -716,13 +716,13 @@ extension _MultiSimulations on List<Simulation> {
 
   UnmodifiableListView<double> dx(double t) {
     return UnmodifiableListView(
-      map((e) => (e as PhysicsSimulation).x(t)).toList(growable: false),
+      map((e) => e.x(t)).toList(growable: false),
     );
   }
 
   UnmodifiableListView<double> x(double t) {
     return UnmodifiableListView(
-      map((e) => (e as PhysicsSimulation).x(t)).toList(growable: false),
+      map((e) => e.x(t)).toList(growable: false),
     );
   }
 }
@@ -748,8 +748,10 @@ extension _Utils on List<double> {
 }
 
 extension FP<T> on Iterable<T> {
-  Iterable<R> indexedMap<R>(R Function(int index, T element) fn) {
+  Iterable<R> indexedMap<R>(R Function(int index, T element) fn) sync* {
     var i = 0;
-    return map((e) => fn(i++, e));
+    for (final e in this) {
+      yield fn(i++, e);
+    }
   }
 }
