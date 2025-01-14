@@ -18,13 +18,7 @@ void main() {
       await tester.pumpWidget(
         Center(
           child: ASize(
-            physics: Spring(
-              description: SpringDescription(
-                mass: 1.0,
-                damping: 20.0,
-                stiffness: 500.0,
-              ),
-            ),
+            physics: Spring.elegant,
             child: const SizedBox(
               width: 100.0,
               height: 100.0,
@@ -33,7 +27,7 @@ void main() {
         ),
       );
 
-      RenderBox box = tester.renderObject(find.byType(ASize));
+      var box = tester.renderObject<RenderASize>(find.byType(ASize));
       expect(box.size.width, equals(100.0));
       expect(box.size.height, equals(100.0));
 
@@ -41,13 +35,7 @@ void main() {
       await tester.pumpWidget(
         Center(
           child: ASize(
-            physics: Spring(
-              description: SpringDescription(
-                mass: 1.0,
-                damping: 20.0,
-                stiffness: 500.0,
-              ),
-            ),
+            physics: Spring.elegant,
             child: const SizedBox(
               width: 200.0,
               height: 200.0,
@@ -60,7 +48,7 @@ void main() {
       await tester.pump();
 
       // Verify animation is in progress
-      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 50));
       box = tester.renderObject(find.byType(ASize));
       expect(box.size.width, greaterThan(100.0));
       expect(box.size.width, lessThan(200.0));
@@ -90,13 +78,7 @@ void main() {
         Center(
           child: ASize(
             onEnd: handleEnd,
-            physics: Spring(
-              description: SpringDescription(
-                mass: 1.0,
-                damping: 20.0,
-                stiffness: 500.0,
-              ),
-            ),
+            physics: Spring.elegant,
             child: const SizedBox(
               width: 100.0,
               height: 100.0,
@@ -111,13 +93,7 @@ void main() {
         Center(
           child: ASize(
             onEnd: handleEnd,
-            physics: Spring(
-              description: SpringDescription(
-                mass: 1.0,
-                damping: 20.0,
-                stiffness: 500.0,
-              ),
-            ),
+            physics: Spring.elegant,
             child: const SizedBox(
               width: 200.0,
               height: 200.0,
@@ -125,10 +101,7 @@ void main() {
           ),
         ),
       );
-
-      // Pump once to trigger post-frame callback
       await tester.pump();
-
       expect(callCount, equals(0));
       await tester.pumpAndSettle();
       expect(callCount, equals(1));
@@ -142,13 +115,7 @@ void main() {
             width: 100.0,
             height: 100.0,
             child: ASize(
-              physics: Spring(
-                description: SpringDescription(
-                  mass: 1.0,
-                  damping: 20.0,
-                  stiffness: 500.0,
-                ),
-              ),
+              physics: Spring.elegant,
               child: const SizedBox(
                 width: 100.0,
                 height: 100.0,
@@ -169,13 +136,7 @@ void main() {
             width: 100.0,
             height: 100.0,
             child: ASize(
-              physics: Spring(
-                description: SpringDescription(
-                  mass: 1.0,
-                  damping: 20.0,
-                  stiffness: 500.0,
-                ),
-              ),
+              physics: Spring.elegant,
               child: const SizedBox(
                 width: 200.0,
                 height: 200.0,
@@ -195,64 +156,77 @@ void main() {
       expect(box.size.height, equals(100.0));
     });
 
-    testWidgets('tracks unstable child size', (WidgetTester tester) async {
+    testWidgets(
+        'tracks unstable child, then resumes animation when child stabilizes',
+        (WidgetTester tester) async {
+      Future<void> pumpMillis(int millis) async {
+        await tester.pump(Duration(milliseconds: millis));
+      }
+
+      void verify({double? size, RenderAnimatedSizeState? state}) {
+        assert(size != null || state != null);
+        final box = tester.renderObject<RenderASize>(find.byType(ASize));
+        if (size != null) {
+          expect(box.size.width, closeTo(size, 0.001));
+          expect(box.size.height, closeTo(size, 0.001));
+        }
+        if (state != null) {
+          expect(box.state, state);
+        }
+      }
+
       await tester.pumpWidget(
         Center(
           child: ASize(
-            physics: Spring(
-              description: SpringDescription(
-                mass: 1.0,
-                damping: 20.0,
-                stiffness: 500.0,
-              ),
-            ),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 100),
+            child: AContainer(
               width: 100.0,
               height: 100.0,
             ),
           ),
         ),
       );
-
-      RenderASize box = tester.renderObject(find.byType(ASize));
-      expect(box.size.width, equals(100.0));
-      expect(box.size.height, equals(100.0));
-
-      // Start child animation
+      verify(size: 100.0, state: RenderAnimatedSizeState.stable);
+      // Animate child size from 100 to 200 slowly (100ms).
       await tester.pumpWidget(
         Center(
           child: ASize(
-            physics: Spring(
-              description: SpringDescription(
-                mass: 1.0,
-                damping: 20.0,
-                stiffness: 500.0,
-              ),
-            ),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 100),
+            child: AContainer(
               width: 200.0,
               height: 200.0,
             ),
           ),
         ),
       );
-
-      // Let the child animation start
-      await tester.pump();
-
-      // Let the child animation progress
-      await tester.pump(const Duration(milliseconds: 50));
-
-      // Verify ASize is tracking the child's animation
-      expect(box.size.width, greaterThan(100.0));
-      expect(box.size.width, lessThan(200.0));
-
-      // Let animations settle
-      await tester.pumpAndSettle();
-      expect(box.size.width, closeTo(200.0, 0.01));
-      expect(box.size.height, closeTo(200.0, 0.01));
+      // Make sure animation proceeds at child's pace, with AnimatedSize
+      // tightly tracking the child's size.
+      verify(state: RenderAnimatedSizeState.stable);
+      await pumpMillis(1); // register change
+      verify(state: RenderAnimatedSizeState.changed);
+      await pumpMillis(139);
+      verify(size: 150.3834, state: RenderAnimatedSizeState.unstable);
+      await pumpMillis(200);
+      verify(size: 194.1519, state: RenderAnimatedSizeState.unstable);
+      // Stabilize size
+      await tester.pumpAndSettle(Duration(seconds: 1));
+      verify(size: 200.0, state: RenderAnimatedSizeState.stable);
+      // Quickly (in 1ms) change size back to 100
+      await tester.pumpWidget(
+        Center(
+          child: ASize(
+            child: AContainer(
+              width: 100.0,
+              height: 100.0,
+            ),
+          ),
+        ),
+      );
+      verify(size: 200.0, state: RenderAnimatedSizeState.stable);
+      await pumpMillis(1); // register change
+      verify(state: RenderAnimatedSizeState.changed);
+      await pumpMillis(100);
+      verify(size: 166.231, state: RenderAnimatedSizeState.unstable);
+      await tester.pumpAndSettle(Duration(seconds: 1));
+      verify(size: 100.0, state: RenderAnimatedSizeState.stable);
     });
 
     testWidgets('can set and update clipBehavior', (WidgetTester tester) async {
@@ -281,13 +255,7 @@ void main() {
         await tester.pumpWidget(
           Center(
             child: ASize(
-              physics: Spring(
-                description: SpringDescription(
-                  mass: 1.0,
-                  damping: 20.0,
-                  stiffness: 500.0,
-                ),
-              ),
+              physics: Spring.elegant,
               clipBehavior: clip,
               child: const SizedBox(
                 width: 100.0,
