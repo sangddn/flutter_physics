@@ -189,7 +189,7 @@ class RenderASize extends RenderAligningShiftedBox {
       duration: duration,
       reverseDuration: reverseDuration,
       defaultPhysics: physics,
-    )..addListener(markNeedsLayout);
+    );
     _onEnd = onEnd;
   }
 
@@ -197,6 +197,10 @@ class RenderASize extends RenderAligningShiftedBox {
   final SizeTween _sizeTween = SizeTween();
   late bool _hasVisualOverflow;
   var _state = RenderAnimatedSizeState.start;
+  bool _needsAnimation = false;
+  bool _isAnimating = false;
+  Size? _lastSize;
+  Size? _targetSize;
 
   Physics get physics => _controller.defaultPhysics;
   set physics(Physics? value) {
@@ -232,7 +236,7 @@ class RenderASize extends RenderAligningShiftedBox {
     }
   }
 
-  bool get isAnimating => _controller.isAnimating;
+  bool get isAnimating => _isAnimating;
 
   final TickerProvider _vsync;
   TickerProvider get vsync => _vsync;
@@ -255,18 +259,25 @@ class RenderASize extends RenderAligningShiftedBox {
   @override
   void attach(PipelineOwner owner) {
     super.attach(owner);
+    _controller.addListener(_handleControllerChange);
+    _controller.addStatusListener(_handleStatusChange);
     if (_state != RenderAnimatedSizeState.start &&
         _state != RenderAnimatedSizeState.stable) {
       markNeedsLayout();
     }
-    _controller.addStatusListener(_handleStatusChange);
   }
 
   @override
   void detach() {
-    _controller.stop();
+    _controller.removeListener(_handleControllerChange);
     _controller.removeStatusListener(_handleStatusChange);
+    _controller.stop();
     super.detach();
+  }
+
+  void _handleControllerChange() {
+    if (!_isAnimating) return;
+    markNeedsLayout();
   }
 
   Size? get _animatedSize {
@@ -286,19 +297,26 @@ class RenderASize extends RenderAligningShiftedBox {
     }
 
     child!.layout(constraints, parentUsesSize: true);
+    final childSize = child!.size;
 
-    switch (_state) {
-      case RenderAnimatedSizeState.start:
-        _layoutStart();
-      case RenderAnimatedSizeState.stable:
-        _layoutStable();
-      case RenderAnimatedSizeState.changed:
-        _layoutChanged();
-      case RenderAnimatedSizeState.unstable:
-        _layoutUnstable();
+    if (_targetSize != childSize) {
+      _targetSize = childSize;
+      if (_state == RenderAnimatedSizeState.start) {
+        _sizeTween.begin = _sizeTween.end = debugAdoptSize(childSize);
+        _state = RenderAnimatedSizeState.stable;
+      } else {
+        _sizeTween.begin = size;
+        _sizeTween.end = debugAdoptSize(childSize);
+        _needsAnimation = true;
+        _state = RenderAnimatedSizeState.changed;
+      }
     }
 
-    size = constraints.constrain(_animatedSize!);
+    if (_needsAnimation) {
+      _scheduleAnimation();
+    }
+
+    size = constraints.constrain(_animatedSize ?? childSize);
     alignChild();
 
     if (size.width < _sizeTween.end!.width ||
@@ -307,75 +325,28 @@ class RenderASize extends RenderAligningShiftedBox {
     }
   }
 
+  void _scheduleAnimation() {
+    _needsAnimation = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!attached) return;
+      _isAnimating = true;
+      _controller.forward();
+    });
+  }
+
   @override
   Size computeDryLayout(covariant BoxConstraints constraints) {
     if (child == null || constraints.isTight) {
       return constraints.smallest;
     }
-
     final Size childSize = child!.getDryLayout(constraints);
-    switch (_state) {
-      case RenderAnimatedSizeState.start:
-        return constraints.constrain(childSize);
-      case RenderAnimatedSizeState.stable:
-        if (_sizeTween.end != childSize) {
-          return constraints.constrain(size);
-        } else if (_controller.value == 1.0) {
-          return constraints.constrain(childSize);
-        }
-      case RenderAnimatedSizeState.unstable:
-      case RenderAnimatedSizeState.changed:
-        if (_sizeTween.end != childSize) {
-          return constraints.constrain(childSize);
-        }
-    }
-
-    return constraints.constrain(_animatedSize!);
-  }
-
-  void _layoutStart() {
-    _sizeTween.begin = _sizeTween.end = debugAdoptSize(child!.size);
-    _state = RenderAnimatedSizeState.stable;
-  }
-
-  void _layoutStable() {
-    if (_sizeTween.end != child!.size) {
-      _sizeTween.begin = size;
-      _sizeTween.end = debugAdoptSize(child!.size);
-      _controller.forward(from: 0.0);
-      _state = RenderAnimatedSizeState.changed;
-    } else if (_controller.value == 1.0) {
-      _sizeTween.begin = _sizeTween.end = debugAdoptSize(child!.size);
-    } else if (!_controller.isAnimating) {
-      _controller.forward();
-    }
-  }
-
-  void _layoutChanged() {
-    if (_sizeTween.end != child!.size) {
-      _sizeTween.begin = _sizeTween.end = debugAdoptSize(child!.size);
-      _controller.forward(from: 0.0);
-      _state = RenderAnimatedSizeState.unstable;
-    } else {
-      _state = RenderAnimatedSizeState.stable;
-      if (!_controller.isAnimating) {
-        _controller.forward();
-      }
-    }
-  }
-
-  void _layoutUnstable() {
-    if (_sizeTween.end != child!.size) {
-      _sizeTween.begin = _sizeTween.end = debugAdoptSize(child!.size);
-      _controller.forward(from: 0.0);
-    } else {
-      _controller.stop();
-      _state = RenderAnimatedSizeState.stable;
-    }
+    return constraints.constrain(childSize);
   }
 
   void _handleStatusChange(AnimationStatus status) {
     if (status == AnimationStatus.completed) {
+      _isAnimating = false;
+      _state = RenderAnimatedSizeState.stable;
       _onEnd?.call();
     }
   }

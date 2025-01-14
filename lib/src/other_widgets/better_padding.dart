@@ -102,12 +102,12 @@ class BetterPadding extends StatelessWidget {
       // For horizontal direction:
       // - negative left padding should move content left (-x)
       // - negative right padding should move content right (+x)
-      final x = -negativeLeft + -negativeRight;
+      final x = -negativeLeft + negativeRight;
 
       // For vertical direction:
       // - negative top padding should move content up (-y)
       // - negative bottom padding should move content down (+y)
-      final y = -negativeTop + -negativeBottom;
+      final y = -negativeTop + negativeBottom;
 
       return Transform.translate(
         offset: Offset(x, y),
