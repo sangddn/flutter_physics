@@ -1,7 +1,7 @@
 // This file defines a physics-first equivalent of Flutter's ImplicitlyAnimatedWidget
 // system, using a PhysicsController instead of AnimationController.
-// It also provides all out-of-the-box variants like Container, Padding, Align, etc.,
-// but renamed as AContainer, APadding, AAlign, etc., to avoid conflicts with Flutter.
+// It also provides all out-of-the-box variants like AnimatedContainer, AnimatedPadding, AnimatedAlign, etc.,
+// renamed as AContainer, APadding, AAlign, etc., to avoid conflicts with Flutter.
 //
 // The general pattern is similar: each widget is an ImplicitlyPhysicsAnimatedWidget
 // subclass, and each state is a PhysicsAnimatedWidgetBaseState that uses a
@@ -9,16 +9,20 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:flutter_physics/flutter_physics.dart';
 
-/// A base class resembling `ImplicitlyAnimatedWidget` driven by a [PhysicsController].
+import '../simulations/physics_simulations.dart';
+import '../controllers/physics_controller.dart';
+import '../other_widgets/other_widgets.dart';
+
+/// A base class resembling `ImplicitlyAnimatedWidget` driven by one or more [PhysicsController]s.
 ///
 /// This class provides a physics-first approach to implicit animations, allowing widgets
 /// to smoothly animate changes to their properties using physics simulations or curves.
 ///
 /// {@tool snippet}
 /// This example shows a basic usage of [ImplicitlyPhysicsAnimatedWidget] to create
-/// a container that animates its color using spring physics:
+/// a container that animates its color using spring physics in a similar fashion
+/// to [ImplicitlyAnimatedWidget]:
 ///
 /// ```dart
 /// class BouncingBox extends ImplicitlyPhysicsAnimatedWidget {
@@ -79,17 +83,24 @@ import 'package:flutter_physics/flutter_physics.dart';
 ///
 /// Unlike Flutter's built-in [ImplicitlyAnimatedWidget], this widget:
 /// * Uses [PhysicsController] instead of [AnimationController]
+/// * Supports multiple [PhysicsController]s for different properties that may
+///   require different bounds (instead of just 0..1)
 /// * Supports both [PhysicsSimulation] and [Curve] based animations
-/// * Provides natural-feeling animations through physics
 /// * Can work without a fixed duration when using physics simulations
 ///
 /// ## Common Use Cases
 ///
-/// This widget is particularly useful for:
-/// * Creating smooth, natural-feeling transitions
-/// * Animating UI elements with realistic physics
-/// * Building responsive interfaces that react to user input
-/// * Implementing gesture-driven animations
+/// This widget is designed for:
+/// * Creating simple, smooth, natural-feeling transitions automatically
+/// * Ease of use: Users do not need to worry about managing multiple controllers
+///
+/// See also:
+/// * [AValue] - An implicitly animated widget that provides implicit animation
+///   for one single value.
+/// * [PhysicsBuilder] - An implicitly animated widget that provides implicit animation
+///   for a single value with support for gesture-driven animations.
+/// * [PhysicsBuilder2D] - An implicitly animated widget that provides implicit animation
+///   for a two-dimensional value with support for gesture-driven animations.
 ///
 /// ## Built-in Variants
 ///
@@ -130,17 +141,20 @@ abstract class ImplicitlyPhysicsAnimatedWidget extends StatefulWidget {
     this.onEnd,
   }) : assert(duration != null || physics is PhysicsSimulation?);
 
+  /// {@template ImplicitlyPhysicsAnimatedWidget.duration}
   /// The duration of the animation.
   ///
   /// This value is used as the default duration for [PhysicsController.forward] and
   /// [PhysicsController.reverse] calls. It can be overridden when manually controlling
   /// the animation.
   ///
-  /// For physics simulations ([PhysicsSimulation]), this should be null to allow the
-  /// physics to determine the natural duration. For curve-based animations ([Curve]),
-  /// this is required.
+  /// For curve-based animations ([Curve]), this is required.
+  /// For physics simulations ([PhysicsSimulation]), setting a fixed duration
+  /// may result in unnatural motion.
+  /// {@endtemplate}
   final Duration? duration;
 
+  /// {@template ImplicitlyPhysicsAnimatedWidget.physics}
   /// The physics or curve that controls how the animation moves.
   ///
   /// This can be either:
@@ -151,11 +165,15 @@ abstract class ImplicitlyPhysicsAnimatedWidget extends StatefulWidget {
   ///
   /// Physics simulations provide more natural-feeling animations by modeling real-world
   /// physics, while curves provide more predictable, traditional easing animations.
+  /// {@endtemplate}
   final Physics? physics;
 
-  /// A callback that is called when the animation completes.
+  /// {@template ImplicitlyPhysicsAnimatedWidget.onEnd}
+  /// A callback that is called when an animation completes. Note that if
+  /// there are multiple controllers, this will be called whenever any of the
+  /// controllers completes.
   ///
-  /// This callback is invoked in two scenarios:
+  /// This callback is specifically invoked in two scenarios:
   /// * When a forward animation reaches its target value
   /// * When a reverse animation returns to its initial value
   ///
@@ -163,6 +181,7 @@ abstract class ImplicitlyPhysicsAnimatedWidget extends StatefulWidget {
   /// * Chaining multiple animations together
   /// * Triggering side effects after an animation
   /// * Cleaning up resources when an animation finishes
+  /// {@endtemplate}
   final VoidCallback? onEnd;
 }
 
@@ -177,42 +196,89 @@ typedef PhysicsTweenVisitor<T extends Object> = Tween<T>? Function(
 /// Signature for a factory function that creates a new `Tween<T>` given the initial value.
 typedef TweenConstructor<T extends Object> = Tween<T> Function(T value);
 
+/// Signature for a "property visitor" that, given an old [PhysicsAnimatedProperty]
+/// and a new target, returns a new or updated [PhysicsAnimatedProperty].
+/// Analog of Flutter's TweenVisitor.
+typedef PhysicsPropertyVisitor = PhysicsAnimatedProperty? Function(
+  PhysicsAnimatedProperty? oldProperty,
+  double? targetValue,
+  PhysicsAnimationConstructor constructor,
+);
+
+/// Signature of a function that creates a new [PhysicsAnimatedProperty] given the initial value
+/// and bounds. Physics-based analog of [TweenConstructor].
+typedef PhysicsAnimationConstructor = PhysicsAnimatedProperty Function(
+    double value);
+
+class PhysicsAnimatedProperty {
+  const PhysicsAnimatedProperty({
+    required this.key,
+    required this.initialValue,
+    this.targetValue,
+  });
+
+  final String key;
+  final double initialValue;
+  final double? targetValue;
+
+  PhysicsAnimatedProperty copyWith({
+    double? initialValue,
+    double? targetValue,
+  }) =>
+      PhysicsAnimatedProperty(
+        key: key,
+        initialValue: initialValue ?? this.initialValue,
+        targetValue: targetValue ?? this.targetValue,
+      );
+
+  @override
+  String toString() =>
+      'PhysicsAnimatedProperty(key: $key, initialValue: $initialValue, targetValue: $targetValue)';
+}
+
 /// A base state class that uses a [PhysicsController] instead of an [AnimationController].
 /// Subclassing this does **not** automatically rebuild on each tick. To rebuild
-/// on each tick, use the `RebuildOnTick` mixin.
+/// on each tick, use [PhysicsAnimatedWidgetBaseState].
 ///
 /// To animate changes to your widget's fields, store `Tween` objects in your
 /// subclass state. Override [forEachTween] to create/update these tweens
 /// whenever new values come in from the updated widget. Then rely on the
-/// physics-driven controller to update [animation] over time, and `setState` is
+/// physics-driven controller to update [tweenAnimation] over time, and `setState` is
 /// called automatically whenever the physics ticks.
 abstract class PhysicsAnimatedWidgetState<
         T extends ImplicitlyPhysicsAnimatedWidget> extends State<T>
     with SingleTickerProviderStateMixin<T> {
-  late PhysicsController _controller;
+  late final PhysicsControllerMulti _controller;
 
-  /// The main animation that this state uses. Typically used to evaluate tweens.
-  Animation<double> get animation => _controller;
+  /// The animation for the tween animations.
+  Animation<double> get animation => _controller.dimension(0);
 
-  /// Exposes the underlying [PhysicsController].
-  PhysicsController get controller => _controller;
+  /// The controller for all tween and physics animations.
+  PhysicsControllerMulti get controller => _controller;
+
+  /// Subclass must declare all physics-animated properties.
+  /// This list should not be changed throughout the lifetime of the widget.
+  List<String> get physicsAnimatedProperties => [];
+  bool get _hasPhysicsProperties => physicsAnimatedProperties.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
-    // Initialize the physics controller
-    _controller = PhysicsController(
-      vsync: this,
-      duration: widget.duration,
-      defaultPhysics:
-          widget.physics, // can be null => defaults in the constructor
-    );
-
-    // Listen for completion
-    _controller.addStatusListener(_handleStatusChange);
-
+    _controller = _createController();
     _constructTweens();
     didUpdateTweens();
+    if (_hasPhysicsProperties) {
+      final initialValues = _constructPhysicsProperties();
+      didUpdatePhysicsProperties();
+      _controller.value = [
+        0.0,
+        ...List.generate(
+          physicsAnimatedProperties.length,
+          (i) =>
+              initialValues[physicsAnimatedProperties[i]]?.initialValue ?? 0.0,
+        )
+      ];
+    }
   }
 
   @override
@@ -223,34 +289,36 @@ abstract class PhysicsAnimatedWidgetState<
     if (widget.duration != oldWidget.duration) {
       _controller.duration = widget.duration;
     }
-    // If user provided a new physics, we want to re-sync or forcibly adapt it.
+
+    // If physics changed, we update the controller's physics
     if (widget.physics != oldWidget.physics) {
-      _updateController();
+      _controller.defaultPhysics =
+          List.filled(_controller.dimensions, widget.physics ?? Spring.elegant);
     }
 
-    if (_constructTweens()) {
-      // Something changed => we do a forward from 0..1 or some approach
-      // The simplest approach is: always re-run from 0..1
+    final someTweensChanged = _constructTweens();
+    final changedPhysicsProperties = _constructPhysicsProperties();
+
+    if (someTweensChanged || changedPhysicsProperties.isNotEmpty) {
       _controller.stop();
-      _controller.value = 0;
-      _controller.forward();
-      didUpdateTweens();
-    }
-  }
-
-  void _updateController() {
-    _controller.defaultPhysics = widget.physics ?? _controller.defaultPhysics;
-    final status = _controller.status;
-    if (status == AnimationStatus.forward ||
-        status == AnimationStatus.reverse) {
-      _controller.forward();
-    }
-  }
-
-  void _handleStatusChange(AnimationStatus status) {
-    if (status == AnimationStatus.completed ||
-        status == AnimationStatus.dismissed) {
-      widget.onEnd?.call();
+      _controller.value = [
+        if (someTweensChanged) 0.0 else _controller.value[0],
+        ...physicsAnimatedProperties.indexedMap((i, key) {
+          final prop = changedPhysicsProperties[key];
+          if (prop == null) return _controller.value[i + 1];
+          return prop.initialValue;
+        })
+      ];
+      _controller.animateTo([
+        if (someTweensChanged) 1.0 else _controller.value[0],
+        ...physicsAnimatedProperties.indexedMap((i, key) {
+          final prop = changedPhysicsProperties[key];
+          if (prop == null) return _controller.value[i + 1];
+          return prop.targetValue ?? prop.initialValue;
+        })
+      ]);
+      if (someTweensChanged) didUpdateTweens();
+      if (changedPhysicsProperties.isNotEmpty) didUpdatePhysicsProperties();
     }
   }
 
@@ -258,6 +326,87 @@ abstract class PhysicsAnimatedWidgetState<
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  PhysicsControllerMulti _createController() {
+    final c = PhysicsControllerMulti(
+      vsync: this,
+      // Reserve the first dimension for all the Tween animations
+      dimensions: 1 + physicsAnimatedProperties.length,
+      duration: widget.duration,
+      defaultPhysicsForAllDimensions: widget.physics,
+      lowerBound: [
+        0.0,
+        ...List.filled(
+          physicsAnimatedProperties.length,
+          double.negativeInfinity,
+        )
+      ],
+      upperBound: [
+        2.0, // 2.0 allows spring physics to oscillate
+        ...List.filled(physicsAnimatedProperties.length, double.infinity)
+      ],
+    );
+    c.addStatusListener(_handleStatusChange);
+    return c;
+  }
+
+  /// Evaluates the value of a physics property.
+  ///
+  /// This is used to get the current value of a physics property.
+  double? evaluate(PhysicsAnimatedProperty? property) {
+    if (property == null) return null;
+    assert(
+      physicsAnimatedProperties.contains(property.key),
+      'Property ${property.key} is not in the [physicsAnimatedProperties] list.',
+    );
+    return _controller
+        .value[physicsAnimatedProperties.indexOf(property.key) + 1];
+  }
+
+  /// Get the animation for the value of a physics property.
+  Animation<double>? getAnimation(PhysicsAnimatedProperty? property) {
+    if (property == null) return null;
+    assert(
+      physicsAnimatedProperties.contains(property.key),
+      'Property ${property.key} is not in the [physicsAnimatedProperties] list.',
+    );
+    return _controller
+        .dimension(physicsAnimatedProperties.indexOf(property.key) + 1);
+  }
+
+  Map<String, PhysicsAnimatedProperty> _constructPhysicsProperties() {
+    if (!_hasPhysicsProperties) return {};
+    final changedProperties = <String, PhysicsAnimatedProperty>{};
+    forEachPhysicsProperty((PhysicsAnimatedProperty? oldProperty,
+        double? targetValue, PhysicsAnimationConstructor constructor) {
+      // If there's no target, we "discard" the property
+      if (targetValue == null) {
+        if (oldProperty != null) {
+          final newProp = oldProperty.copyWith(targetValue: null);
+          changedProperties[newProp.key] = newProp;
+          return null;
+        } else {
+          return null;
+        }
+      }
+      if (oldProperty == null) {
+        final newProp = constructor(targetValue);
+        changedProperties[newProp.key] = newProp;
+        return newProp;
+      }
+      // If the new target is different from the old end, we update
+      if (oldProperty.targetValue != targetValue) {
+        final prop = oldProperty.copyWith(
+          initialValue: evaluate(oldProperty)!,
+          targetValue: targetValue,
+        );
+        changedProperties[prop.key] = prop;
+        return prop;
+      }
+      return oldProperty;
+    });
+    return changedProperties;
   }
 
   bool _constructTweens() {
@@ -295,22 +444,45 @@ abstract class PhysicsAnimatedWidgetState<
   @protected
   void didUpdateTweens() {}
 
-  /// Subclasses must override this to create/update tweens for each animated property.
+  /// Subclasses must override this to create/update tweens if it has any
+  /// tween-based properties.
   ///
   /// This is analogous to `AnimatedWidgetBaseState.forEachTween`.
+  /// Invoked every time the widget is updated.
   @protected
-  void forEachTween(PhysicsTweenVisitor<dynamic> visitor);
+  void forEachTween(PhysicsTweenVisitor<dynamic> visitor) {}
+
+  /// Called when the physics properties have been updated. Override this if needed.
+  @protected
+  void didUpdatePhysicsProperties() {}
+
+  /// Subclasses must override this to return a map from controller keys to
+  /// a tuple of the old value and the new target value for the respective
+  /// controller.
+  ///
+  /// Invoked every time the widget is updated.
+  @protected
+  void forEachPhysicsProperty(PhysicsPropertyVisitor visitor) =>
+      throw UnimplementedError(
+        '${objectRuntimeType(this, 'PhysicsAnimatedWidgetState')} must implement forEachPhysicsProperty if it declares physics-animated properties.',
+      );
+
+  void _handleStatusChange(AnimationStatus status) {
+    if (status == AnimationStatus.completed ||
+        status == AnimationStatus.dismissed) {
+      widget.onEnd?.call();
+    }
+  }
 }
 
-/// A mixin that rebuilds the state on each tick of the physics controller.
-/// This is useful for widgets that need to rebuild on each tick, like [AContainer].
-mixin RebuildOnTick<T extends ImplicitlyPhysicsAnimatedWidget> on State<T> {
-  PhysicsController get controller;
-
+abstract class PhysicsAnimatedWidgetBaseState<
+        T extends ImplicitlyPhysicsAnimatedWidget>
+    extends PhysicsAnimatedWidgetState<T> {
   @override
-  void initState() {
-    super.initState();
-    controller.addListener(_handleAnimationChanged);
+  PhysicsControllerMulti _createController() {
+    final c = super._createController();
+    c.addListener(_handleAnimationChanged);
+    return c;
   }
 
   void _handleAnimationChanged() {
@@ -318,6 +490,7 @@ mixin RebuildOnTick<T extends ImplicitlyPhysicsAnimatedWidget> on State<T> {
   }
 }
 
+/// {@template a_container}
 /// Physics-based equivalent of [AnimatedContainer], renamed to [AContainer].
 ///
 /// Automatically transitions between different values for properties when they change,
@@ -368,6 +541,8 @@ mixin RebuildOnTick<T extends ImplicitlyPhysicsAnimatedWidget> on State<T> {
 /// * [transform]
 /// * [alignment]
 /// * [transformAlignment]
+/// * [width]
+/// * [height]
 ///
 /// The [child] and [clipBehavior] properties are not animated.
 ///
@@ -375,7 +550,10 @@ mixin RebuildOnTick<T extends ImplicitlyPhysicsAnimatedWidget> on State<T> {
 /// * [APadding], which only animates the padding property
 /// * [AAlign], which only animates the alignment property
 /// * [Container], the non-animated version of this widget
+/// {@endtemplate}
 class AContainer extends ImplicitlyPhysicsAnimatedWidget {
+  /// Creates a new [AContainer].
+  /// {@macro a_container}
   const AContainer({
     super.key,
     super.duration,
@@ -388,36 +566,159 @@ class AContainer extends ImplicitlyPhysicsAnimatedWidget {
     this.transform,
     this.transformAlignment,
     this.clipBehavior = Clip.none,
+    this.width,
+    this.height,
     this.child,
     super.physics,
     super.onEnd,
   });
 
+  /// The decoration to paint behind the [child].
+  ///
+  /// Use the [decoration] property to paint a [BoxDecoration] either behind or in
+  /// front of the child. When both [decoration] and [foregroundDecoration] are
+  /// defined, they will be animated independently.
   final Decoration? decoration;
+
+  /// The decoration to paint in front of the [child].
+  ///
+  /// Use the [foregroundDecoration] property to paint a [BoxDecoration] in front of
+  /// the child. When both [decoration] and [foregroundDecoration] are defined,
+  /// they will be animated independently.
   final Decoration? foregroundDecoration;
-  final AlignmentGeometry? alignment;
+
+  /// Align the [child] within the container.
+  ///
+  /// If non-null, the container will expand to fill its parent and position its
+  /// child within itself according to the given value. If the container's parent
+  /// does not provide unbounded constraints, then [child] is aligned within the
+  /// container's bounds.
+  final Alignment? alignment;
+
+  /// Additional constraints to apply to the child.
+  ///
+  /// The [constraints] are combined with the constraints that the container gets
+  /// from its parent to derive the constraints used to lay out the container's
+  /// child.
   final BoxConstraints? constraints;
-  final EdgeInsetsGeometry? padding;
-  final EdgeInsetsGeometry? margin;
+
+  /// Empty space to inscribe inside the [decoration]. The [child], if any, is
+  /// placed inside this padding.
+  ///
+  /// Negative values are interpreted as [Transform.translate.offset].
+  ///
+  /// This padding is in addition to any padding inherent in the [decoration];
+  /// see [Decoration.padding].
+  final EdgeInsets? padding;
+
+  /// Empty space to surround the [decoration] and [child].
+  ///
+  /// Negative values are interpreted as [Transform.translate.offset].
+  ///
+  /// The [margin] property effectively adds empty space around the container to
+  /// separate it from its parent and siblings.
+  final EdgeInsets? margin;
+
+  /// The transformation matrix to apply before painting the container.
+  ///
+  /// This property allows you to rotate, scale, or translate the container before
+  /// painting it. The transformation is applied in the opposite order of the
+  /// operations described in the matrix.
   final Matrix4? transform;
-  final AlignmentGeometry? transformAlignment;
+
+  /// The alignment of the origin, relative to the size of the container, if [transform] is specified.
+  ///
+  /// When [transform] is null, the value of this property is ignored.
+  ///
+  /// See also:
+  ///
+  ///  * [Transform.alignment], which is set by this property.
+  final Alignment? transformAlignment;
+
+  /// The clip behavior when [Container.decoration] is not null.
+  ///
+  /// Defaults to [Clip.none]. Must not be null.
+  ///
+  /// If [clipBehavior] is [Clip.none] and [decoration] is not null, then the
+  /// decoration can paint outside of the container's bounds.
   final Clip clipBehavior;
+
+  /// If non-null, requires the container to have exactly this width.
+  ///
+  /// This property is preferred to using [constraints] to set the width, as it
+  /// will usually lead to less complex layout behavior.
+  final double? width;
+
+  /// If non-null, requires the container to have exactly this height.
+  ///
+  /// This property is preferred to using [constraints] to set the height, as it
+  /// will usually lead to less complex layout behavior.
+  final double? height;
+
+  /// The [child] contained by the container.
+  ///
+  /// If null, and if the [constraints] are unbounded or also null, the container
+  /// will expand to fill all available space in its parent, unless the parent
+  /// provides unbounded constraints, in which case the container will attempt to
+  /// be as small as possible.
   final Widget? child;
 
   @override
   State<AContainer> createState() => _AContainerState();
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(DiagnosticsProperty<Decoration>('decoration', decoration));
+    properties.add(DiagnosticsProperty<Decoration>(
+        'foregroundDecoration', foregroundDecoration));
+    properties
+        .add(DiagnosticsProperty<AlignmentGeometry>('alignment', alignment));
+    properties
+        .add(DiagnosticsProperty<BoxConstraints>('constraints', constraints));
+    properties.add(DiagnosticsProperty<EdgeInsetsGeometry>('padding', padding));
+    properties.add(DiagnosticsProperty<EdgeInsetsGeometry>('margin', margin));
+    properties.add(DiagnosticsProperty<Matrix4>('transform', transform));
+    properties.add(DiagnosticsProperty<AlignmentGeometry>(
+        'transformAlignment', transformAlignment));
+    properties.add(EnumProperty<Clip>('clipBehavior', clipBehavior));
+    properties.add(DoubleProperty('width', width));
+    properties.add(DoubleProperty('height', height));
+  }
 }
 
-class _AContainerState extends PhysicsAnimatedWidgetState<AContainer>
-    with RebuildOnTick {
+class _AContainerState extends PhysicsAnimatedWidgetBaseState<AContainer> {
   DecorationTween? _decoration;
   DecorationTween? _foregroundDecoration;
-  AlignmentGeometryTween? _alignment;
   BoxConstraintsTween? _constraints;
-  EdgeInsetsGeometryTween? _padding;
-  EdgeInsetsGeometryTween? _margin;
   Matrix4Tween? _transform;
-  AlignmentGeometryTween? _transformAlignment;
+
+  PhysicsAnimatedProperty? _width, _height;
+  PhysicsAnimatedProperty? _paddingTop,
+      _paddingRight,
+      _paddingLeft,
+      _paddingBottom;
+  PhysicsAnimatedProperty? _marginTop, _marginRight, _marginLeft, _marginBottom;
+  PhysicsAnimatedProperty? _alignmentX, _alignmentY;
+  PhysicsAnimatedProperty? _transformAlignmentX, _transformAlignmentY;
+
+  @override
+  List<String> get physicsAnimatedProperties => const [
+        'width',
+        'height',
+        'paddingTop',
+        'paddingRight',
+        'paddingLeft',
+        'paddingBottom',
+        'marginTop',
+        'marginRight',
+        'marginLeft',
+        'marginBottom',
+        'alignmentX',
+        'alignmentY',
+        'transformAlignmentX',
+        'transformAlignmentY',
+      ];
 
   @override
   void forEachTween(PhysicsTweenVisitor<dynamic> visitor) {
@@ -429,82 +730,93 @@ class _AContainerState extends PhysicsAnimatedWidgetState<AContainer>
             widget.foregroundDecoration,
             (value) => DecorationTween(begin: value as Decoration?))
         as DecorationTween?;
-    _alignment = visitor(
-            _alignment,
-            widget.alignment,
-            (value) =>
-                AlignmentGeometryTween(begin: value as AlignmentGeometry?))
-        as AlignmentGeometryTween?;
     _constraints = visitor(_constraints, widget.constraints,
             (value) => BoxConstraintsTween(begin: value as BoxConstraints?))
         as BoxConstraintsTween?;
-    _padding = visitor(
-            _padding,
-            widget.padding,
-            (value) =>
-                EdgeInsetsGeometryTween(begin: value as EdgeInsetsGeometry?))
-        as EdgeInsetsGeometryTween?;
-    _margin = visitor(
-            _margin,
-            widget.margin,
-            (value) =>
-                EdgeInsetsGeometryTween(begin: value as EdgeInsetsGeometry?))
-        as EdgeInsetsGeometryTween?;
     _transform = visitor(_transform, widget.transform,
         (value) => Matrix4Tween(begin: value as Matrix4?)) as Matrix4Tween?;
-    _transformAlignment = visitor(
-            _transformAlignment,
-            widget.transformAlignment,
-            (value) =>
-                AlignmentGeometryTween(begin: value as AlignmentGeometry?))
-        as AlignmentGeometryTween?;
   }
 
   @override
-  void debugFillProperties(DiagnosticPropertiesBuilder description) {
-    super.debugFillProperties(description);
-    description.add(DiagnosticsProperty<DecorationTween>(
-        'decoration', _decoration,
-        defaultValue: null));
-    description.add(DiagnosticsProperty<DecorationTween>(
-        'foregroundDecoration', _foregroundDecoration,
-        defaultValue: null));
-    description.add(DiagnosticsProperty<AlignmentGeometryTween>(
-        'alignment', _alignment,
-        defaultValue: null));
-    description.add(DiagnosticsProperty<BoxConstraintsTween>(
-        'constraints', _constraints,
-        defaultValue: null));
-    description.add(DiagnosticsProperty<EdgeInsetsGeometryTween>(
-        'padding', _padding,
-        defaultValue: null));
-    description.add(DiagnosticsProperty<EdgeInsetsGeometryTween>(
-        'margin', _margin,
-        defaultValue: null));
-    description
-        .add(ObjectFlagProperty<Matrix4Tween>.has('transform', _transform));
-    description.add(DiagnosticsProperty<AlignmentGeometryTween>(
-        'transformAlignment', _transformAlignment,
-        defaultValue: null));
+  void forEachPhysicsProperty(PhysicsPropertyVisitor visitor) {
+    final p = widget.padding;
+    final a = widget.alignment;
+    final m = widget.margin;
+    final ta = widget.transformAlignment;
+    _width = visitor(_width, widget.width,
+        (v) => PhysicsAnimatedProperty(key: 'width', initialValue: v));
+    _height = visitor(_height, widget.height,
+        (v) => PhysicsAnimatedProperty(key: 'height', initialValue: v));
+    _paddingTop = visitor(_paddingTop, p?.top,
+        (v) => PhysicsAnimatedProperty(key: 'paddingTop', initialValue: v));
+    _paddingRight = visitor(_paddingRight, p?.right,
+        (v) => PhysicsAnimatedProperty(key: 'paddingRight', initialValue: v));
+    _paddingLeft = visitor(_paddingLeft, p?.left,
+        (v) => PhysicsAnimatedProperty(key: 'paddingLeft', initialValue: v));
+    _paddingBottom = visitor(_paddingBottom, p?.bottom,
+        (v) => PhysicsAnimatedProperty(key: 'paddingBottom', initialValue: v));
+    _marginTop = visitor(_marginTop, m?.top,
+        (v) => PhysicsAnimatedProperty(key: 'marginTop', initialValue: v));
+    _marginRight = visitor(_marginRight, m?.right,
+        (v) => PhysicsAnimatedProperty(key: 'marginRight', initialValue: v));
+    _marginLeft = visitor(_marginLeft, m?.left,
+        (v) => PhysicsAnimatedProperty(key: 'marginLeft', initialValue: v));
+    _marginBottom = visitor(_marginBottom, m?.bottom,
+        (v) => PhysicsAnimatedProperty(key: 'marginBottom', initialValue: v));
+    _alignmentX = visitor(_alignmentX, a?.x,
+        (v) => PhysicsAnimatedProperty(key: 'alignmentX', initialValue: v));
+    _alignmentY = visitor(_alignmentY, a?.y,
+        (v) => PhysicsAnimatedProperty(key: 'alignmentY', initialValue: v));
+    _transformAlignmentX = visitor(
+        _transformAlignmentX,
+        ta?.x,
+        (v) => PhysicsAnimatedProperty(
+            key: 'transformAlignmentX', initialValue: v));
+    _transformAlignmentY = visitor(
+        _transformAlignmentY,
+        ta?.y,
+        (v) => PhysicsAnimatedProperty(
+            key: 'transformAlignmentY', initialValue: v));
   }
 
   @override
   Widget build(BuildContext context) {
-    final animation = this.animation;
+    final pt = evaluate(_paddingTop);
+    final pr = evaluate(_paddingRight);
+    final pl = evaluate(_paddingLeft);
+    final pb = evaluate(_paddingBottom);
+    final mt = evaluate(_marginTop);
+    final mr = evaluate(_marginRight);
+    final ml = evaluate(_marginLeft);
+    final mb = evaluate(_marginBottom);
+    final ax = evaluate(_alignmentX);
+    final ay = evaluate(_alignmentY);
+    final tax = evaluate(_transformAlignmentX);
+    final tay = evaluate(_transformAlignmentY);
+    final p = pt != null && pr != null && pl != null && pb != null
+        ? EdgeInsets.only(top: pt, right: pr, left: pl, bottom: pb)
+        : widget.padding;
+    final m = mt != null && mr != null && ml != null && mb != null
+        ? EdgeInsets.only(top: mt, right: mr, left: ml, bottom: mb)
+        : widget.margin;
+    final a = ax != null && ay != null ? Alignment(ax, ay) : widget.alignment;
+    final ta = tax != null && tay != null
+        ? Alignment(tax, tay)
+        : widget.transformAlignment;
     return BetterPadding(
-      padding: _margin?.evaluate(animation) ?? widget.margin ?? EdgeInsets.zero,
+      padding: m ?? EdgeInsets.zero,
       child: Container(
         decoration: _decoration?.evaluate(animation),
         foregroundDecoration: _foregroundDecoration?.evaluate(animation),
-        alignment: _alignment?.evaluate(animation),
+        alignment: a,
         constraints: _constraints?.evaluate(animation),
         transform: _transform?.evaluate(animation),
-        transformAlignment: _transformAlignment?.evaluate(animation),
+        transformAlignment: ta,
         clipBehavior: widget.clipBehavior,
+        width: evaluate(_width),
+        height: evaluate(_height),
         child: BetterPadding(
-          padding: _padding?.evaluate(animation) ??
-              widget.padding ??
-              EdgeInsets.zero,
+          padding: p ?? EdgeInsets.zero,
           child: widget.child,
         ),
       ),
@@ -512,6 +824,7 @@ class _AContainerState extends PhysicsAnimatedWidgetState<AContainer>
   }
 }
 
+/// {@template a_sized_box}
 /// A widget that animates changes in size using physics-based animations.
 ///
 /// {@macro ImplicitlyPhysicsAnimatedWidget}
@@ -550,7 +863,10 @@ class _AContainerState extends PhysicsAnimatedWidgetState<AContainer>
 /// See also:
 /// * [AContainer], which can animate size along with other properties
 /// * [SizedBox], which provides non-animated sizing
+/// {@endtemplate}
 class ASizedBox extends ImplicitlyPhysicsAnimatedWidget {
+  /// Creates a new [ASizedBox].
+  /// {@macro a_sized_box}
   const ASizedBox({
     super.key,
     this.width,
@@ -574,40 +890,31 @@ class ASizedBox extends ImplicitlyPhysicsAnimatedWidget {
   State<ASizedBox> createState() => _ASizedBoxState();
 }
 
-class _ASizedBoxState extends PhysicsAnimatedWidgetState<ASizedBox>
-    with RebuildOnTick {
-  Tween<double>? _width;
-  Tween<double>? _height;
+class _ASizedBoxState extends PhysicsAnimatedWidgetBaseState<ASizedBox> {
+  PhysicsAnimatedProperty? _width, _height;
 
   @override
-  void forEachTween(TweenVisitor<dynamic> visitor) {
+  void forEachPhysicsProperty(PhysicsPropertyVisitor visitor) {
     _width = visitor(_width, widget.width,
-            (dynamic value) => Tween<double>(begin: value as double))
-        as Tween<double>?;
+        (v) => PhysicsAnimatedProperty(key: 'width', initialValue: v));
     _height = visitor(_height, widget.height,
-            (dynamic value) => Tween<double>(begin: value as double))
-        as Tween<double>?;
+        (v) => PhysicsAnimatedProperty(key: 'height', initialValue: v));
   }
+
+  @override
+  List<String> get physicsAnimatedProperties => const ['width', 'height'];
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: _width?.evaluate(animation),
-      height: _height?.evaluate(animation),
+      width: evaluate(_width),
+      height: evaluate(_height),
       child: widget.child,
     );
   }
-
-  @override
-  void debugFillProperties(DiagnosticPropertiesBuilder description) {
-    super.debugFillProperties(description);
-    description.add(DiagnosticsProperty<Tween<double>>('width', _width,
-        defaultValue: null));
-    description.add(DiagnosticsProperty<Tween<double>>('height', _height,
-        defaultValue: null));
-  }
 }
 
+/// {@template a_padding}
 /// Physics-based equivalent of [AnimatedPadding], renamed to [APadding].
 ///
 /// Animates changes in padding using physics-based animations, providing more natural
@@ -648,7 +955,10 @@ class _ASizedBoxState extends PhysicsAnimatedWidgetState<ASizedBox>
 /// See also:
 /// * [AContainer], which can animate padding along with other properties
 /// * [BetterPadding], which handles negative padding values correctly
+/// {@endtemplate}
 class APadding extends ImplicitlyPhysicsAnimatedWidget {
+  /// Creates a new [APadding].
+  /// {@macro a_padding}
   const APadding({
     super.key,
     required this.padding,
@@ -658,41 +968,73 @@ class APadding extends ImplicitlyPhysicsAnimatedWidget {
     super.onEnd,
   });
 
-  final EdgeInsetsGeometry padding;
+  final EdgeInsets padding;
   final Widget? child;
 
   @override
   State<APadding> createState() => _APaddingState();
 }
 
-class _APaddingState extends PhysicsAnimatedWidgetState<APadding>
-    with RebuildOnTick {
-  EdgeInsetsGeometryTween? _padding;
+class _APaddingState extends PhysicsAnimatedWidgetBaseState<APadding> {
+  PhysicsAnimatedProperty? _top, _right, _left, _bottom;
 
   @override
-  void forEachTween(PhysicsTweenVisitor<dynamic> visitor) {
-    _padding = visitor(
-      _padding,
-      widget.padding,
-      (value) => EdgeInsetsGeometryTween(begin: value as EdgeInsetsGeometry),
-    ) as EdgeInsetsGeometryTween?;
+  List<String> get physicsAnimatedProperties => const [
+        'top',
+        'right',
+        'left',
+        'bottom',
+      ];
+
+  @override
+  void forEachPhysicsProperty(PhysicsPropertyVisitor visitor) {
+    final p = widget.padding;
+    _top = visitor(_top, p.top,
+        (v) => PhysicsAnimatedProperty(key: 'top', initialValue: v));
+    _right = visitor(_right, p.right,
+        (v) => PhysicsAnimatedProperty(key: 'right', initialValue: v));
+    _left = visitor(_left, p.left,
+        (v) => PhysicsAnimatedProperty(key: 'left', initialValue: v));
+    _bottom = visitor(_bottom, p.bottom,
+        (v) => PhysicsAnimatedProperty(key: 'bottom', initialValue: v));
   }
 
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder description) {
     super.debugFillProperties(description);
-    description.add(DiagnosticsProperty<EdgeInsetsGeometryTween>(
-        'padding', _padding,
+    description.add(DiagnosticsProperty<PhysicsAnimatedProperty>('top', _top,
+        defaultValue: null));
+    description.add(DiagnosticsProperty<PhysicsAnimatedProperty>(
+        'right', _right,
+        defaultValue: null));
+    description.add(DiagnosticsProperty<PhysicsAnimatedProperty>('left', _left,
+        defaultValue: null));
+    description.add(DiagnosticsProperty<PhysicsAnimatedProperty>(
+        'bottom', _bottom,
         defaultValue: null));
   }
 
   @override
   Widget build(BuildContext context) {
-    final padding = _padding!.evaluate(animation);
-    return BetterPadding(padding: padding, child: widget.child);
+    final top = evaluate(_top);
+    final right = evaluate(_right);
+    final left = evaluate(_left);
+    final bottom = evaluate(_bottom);
+    return BetterPadding(
+      padding: top != null && right != null && left != null && bottom != null
+          ? EdgeInsets.only(
+              top: top,
+              right: right,
+              left: left,
+              bottom: bottom,
+            )
+          : widget.padding,
+      child: widget.child,
+    );
   }
 }
 
+/// {@template a_align}
 /// Physics-based equivalent of [AnimatedAlign], renamed to [AAlign].
 ///
 /// Animates changes in alignment using physics-based animations. This widget is particularly
@@ -743,7 +1085,10 @@ class _APaddingState extends PhysicsAnimatedWidgetState<APadding>
 /// See also:
 /// * [APositioned], for animating position in a [Stack]
 /// * [ASlide], for animating position relative to normal position
+/// {@endtemplate}
 class AAlign extends ImplicitlyPhysicsAnimatedWidget {
+  /// Creates a new [AAlign].
+  /// {@macro a_align}
   const AAlign({
     super.key,
     required this.alignment,
@@ -755,7 +1100,7 @@ class AAlign extends ImplicitlyPhysicsAnimatedWidget {
     super.onEnd,
   });
 
-  final AlignmentGeometry alignment;
+  final Alignment alignment;
   final Widget? child;
   final double? heightFactor;
   final double? widthFactor;
@@ -764,55 +1109,77 @@ class AAlign extends ImplicitlyPhysicsAnimatedWidget {
   State<AAlign> createState() => _AAlignState();
 }
 
-class _AAlignState extends PhysicsAnimatedWidgetState<AAlign>
-    with RebuildOnTick {
-  AlignmentGeometryTween? _alignment;
-  Tween<double>? _heightFactor;
-  Tween<double>? _widthFactor;
+class _AAlignState extends PhysicsAnimatedWidgetBaseState<AAlign> {
+  PhysicsAnimatedProperty? _alignmentX,
+      _alignmentY,
+      _heightFactor,
+      _widthFactor;
 
   @override
-  void forEachTween(PhysicsTweenVisitor<dynamic> visitor) {
-    _alignment = visitor(
-            _alignment,
-            widget.alignment,
-            (dynamic value) =>
-                AlignmentGeometryTween(begin: value as AlignmentGeometry))
-        as AlignmentGeometryTween?;
-    _heightFactor = visitor(_heightFactor, widget.heightFactor,
-            (dynamic value) => Tween<double>(begin: value as double))
-        as Tween<double>?;
-    _widthFactor = visitor(_widthFactor, widget.widthFactor,
-            (dynamic value) => Tween<double>(begin: value as double))
-        as Tween<double>?;
+  List<String> get physicsAnimatedProperties => const [
+        'alignmentX',
+        'alignmentY',
+        'heightFactor',
+        'widthFactor',
+      ];
+
+  @override
+  void forEachPhysicsProperty(PhysicsPropertyVisitor visitor) {
+    _alignmentX = visitor(
+        _alignmentX,
+        widget.alignment.x,
+        (dynamic value) =>
+            PhysicsAnimatedProperty(key: 'alignmentX', initialValue: value));
+    _alignmentY = visitor(
+        _alignmentY,
+        widget.alignment.y,
+        (dynamic value) =>
+            PhysicsAnimatedProperty(key: 'alignmentY', initialValue: value));
+    _heightFactor = visitor(
+        _heightFactor,
+        widget.heightFactor,
+        (dynamic value) =>
+            PhysicsAnimatedProperty(key: 'heightFactor', initialValue: value));
+    _widthFactor = visitor(
+        _widthFactor,
+        widget.widthFactor,
+        (dynamic value) =>
+            PhysicsAnimatedProperty(key: 'widthFactor', initialValue: value));
   }
 
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<AlignmentGeometryTween>(
-        'alignment', _alignment,
+    properties.add(DiagnosticsProperty<PhysicsAnimatedProperty>(
+        'alignmentX', _alignmentX,
         defaultValue: null));
-    properties.add(DiagnosticsProperty<Tween<double>>(
+    properties.add(DiagnosticsProperty<PhysicsAnimatedProperty>(
+        'alignmentY', _alignmentY,
+        defaultValue: null));
+    properties.add(DiagnosticsProperty<PhysicsAnimatedProperty>(
         'widthFactor', _widthFactor,
         defaultValue: null));
-    properties.add(DiagnosticsProperty<Tween<double>>(
+    properties.add(DiagnosticsProperty<PhysicsAnimatedProperty>(
         'heightFactor', _heightFactor,
         defaultValue: null));
   }
 
   @override
   Widget build(BuildContext context) {
+    final alignX = evaluate(_alignmentX);
+    final alignY = evaluate(_alignmentY);
     return Align(
-      alignment: _alignment?.evaluate(animation) ?? widget.alignment,
-      heightFactor: (_heightFactor?.evaluate(animation) ?? widget.heightFactor)
-          ?.clamp(0.0, double.infinity),
-      widthFactor: (_widthFactor?.evaluate(animation) ?? widget.widthFactor)
-          ?.clamp(0.0, double.infinity),
+      alignment: alignX != null && alignY != null
+          ? Alignment(alignX, alignY)
+          : widget.alignment,
+      heightFactor: evaluate(_heightFactor)?.clamp(0.0, double.infinity),
+      widthFactor: evaluate(_widthFactor)?.clamp(0.0, double.infinity),
       child: widget.child,
     );
   }
 }
 
+/// {@template a_positioned_full}
 /// Physics-based equivalent of [AnimatedPositioned], renamed to [APositioned].
 /// {@template a_positioned}
 /// Animates changes in position within a [Stack] using physics-based animations.
@@ -867,7 +1234,10 @@ class _AAlignState extends PhysicsAnimatedWidgetState<AAlign>
 /// * [APositionedDirectional] for RTL-aware positioning
 /// * [ASlide] for simpler relative positioning
 /// {@endtemplate}
+/// {@endtemplate}
 class APositioned extends ImplicitlyPhysicsAnimatedWidget {
+  /// Creates a new [APositioned].
+  /// {@macro a_positioned_full}
   const APositioned({
     super.key,
     super.duration,
@@ -894,52 +1264,59 @@ class APositioned extends ImplicitlyPhysicsAnimatedWidget {
   State<APositioned> createState() => _APositionedState();
 }
 
-class _APositionedState extends PhysicsAnimatedWidgetState<APositioned>
-    with RebuildOnTick {
-  Tween<double>? _left;
-  Tween<double>? _top;
-  Tween<double>? _right;
-  Tween<double>? _bottom;
-  Tween<double>? _width;
-  Tween<double>? _height;
+class _APositionedState extends PhysicsAnimatedWidgetBaseState<APositioned> {
+  PhysicsAnimatedProperty? _left, _top, _right, _bottom, _width, _height;
 
   @override
-  void forEachTween(PhysicsTweenVisitor<dynamic> visitor) {
+  List<String> get physicsAnimatedProperties => const [
+        'left',
+        'top',
+        'right',
+        'bottom',
+        'width',
+        'height',
+      ];
+
+  @override
+  void forEachPhysicsProperty(PhysicsPropertyVisitor visitor) {
     _left = visitor(_left, widget.left,
-        (dynamic v) => Tween<double>(begin: v as double)) as Tween<double>?;
-    _top = visitor(
-            _top, widget.top, (dynamic v) => Tween<double>(begin: v as double))
-        as Tween<double>?;
+        (dynamic v) => PhysicsAnimatedProperty(key: 'left', initialValue: v));
+    _top = visitor(_top, widget.top,
+        (dynamic v) => PhysicsAnimatedProperty(key: 'top', initialValue: v));
     _right = visitor(_right, widget.right,
-        (dynamic v) => Tween<double>(begin: v as double)) as Tween<double>?;
+        (dynamic v) => PhysicsAnimatedProperty(key: 'right', initialValue: v));
     _bottom = visitor(_bottom, widget.bottom,
-        (dynamic v) => Tween<double>(begin: v as double)) as Tween<double>?;
+        (dynamic v) => PhysicsAnimatedProperty(key: 'bottom', initialValue: v));
     _width = visitor(_width, widget.width,
-        (dynamic v) => Tween<double>(begin: v as double)) as Tween<double>?;
+        (dynamic v) => PhysicsAnimatedProperty(key: 'width', initialValue: v));
     _height = visitor(_height, widget.height,
-        (dynamic v) => Tween<double>(begin: v as double)) as Tween<double>?;
+        (dynamic v) => PhysicsAnimatedProperty(key: 'height', initialValue: v));
   }
 
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      left: _left?.evaluate(animation) ?? widget.left,
-      top: _top?.evaluate(animation) ?? widget.top,
-      right: _right?.evaluate(animation) ?? widget.right,
-      bottom: _bottom?.evaluate(animation) ?? widget.bottom,
-      width: _width?.evaluate(animation) ?? widget.width,
-      height: _height?.evaluate(animation) ?? widget.height,
+      left: evaluate(_left) ?? widget.left,
+      top: evaluate(_top) ?? widget.top,
+      right: evaluate(_right) ?? widget.right,
+      bottom: evaluate(_bottom) ?? widget.bottom,
+      width: evaluate(_width) ?? widget.width,
+      height: evaluate(_height) ?? widget.height,
       child: widget.child,
     );
   }
 }
 
+/// {@template a_positioned_directional}
 /// Physics-based equivalent of [AnimatedPositionedDirectional], renamed to [APositionedDirectional].
 /// Directional equivalent of [APositioned].
 ///
 /// Copied from [APositioned]:
 /// {@macro a_positioned}
+/// {@endtemplate}
 class APositionedDirectional extends ImplicitlyPhysicsAnimatedWidget {
+  /// Creates a new [APositionedDirectional].
+  /// {@macro a_positioned_directional}
   const APositionedDirectional({
     super.key,
     super.duration,
@@ -967,50 +1344,51 @@ class APositionedDirectional extends ImplicitlyPhysicsAnimatedWidget {
 }
 
 class _APositionedDirectionalState
-    extends PhysicsAnimatedWidgetState<APositionedDirectional>
-    with RebuildOnTick {
-  Tween<double>? _start;
-  Tween<double>? _top;
-  Tween<double>? _end;
-  Tween<double>? _bottom;
-  Tween<double>? _width;
-  Tween<double>? _height;
+    extends PhysicsAnimatedWidgetBaseState<APositionedDirectional> {
+  PhysicsAnimatedProperty? _start, _top, _end, _bottom, _width, _height;
 
   @override
-  void forEachTween(PhysicsTweenVisitor<dynamic> visitor) {
-    _start =
-        visitor(_start, widget.start, (v) => Tween<double>(begin: v as double))
-            as Tween<double>?;
-    _top = visitor(_top, widget.top, (v) => Tween<double>(begin: v as double))
-        as Tween<double>?;
-    _end = visitor(_end, widget.end, (v) => Tween<double>(begin: v as double))
-        as Tween<double>?;
-    _bottom = visitor(
-            _bottom, widget.bottom, (v) => Tween<double>(begin: v as double))
-        as Tween<double>?;
-    _width =
-        visitor(_width, widget.width, (v) => Tween<double>(begin: v as double))
-            as Tween<double>?;
-    _height = visitor(
-            _height, widget.height, (v) => Tween<double>(begin: v as double))
-        as Tween<double>?;
+  List<String> get physicsAnimatedProperties => const [
+        'start',
+        'top',
+        'end',
+        'bottom',
+        'width',
+        'height',
+      ];
+
+  @override
+  void forEachPhysicsProperty(PhysicsPropertyVisitor visitor) {
+    _start = visitor(_start, widget.start,
+        (v) => PhysicsAnimatedProperty(key: 'start', initialValue: v));
+    _top = visitor(_top, widget.top,
+        (v) => PhysicsAnimatedProperty(key: 'top', initialValue: v));
+    _end = visitor(_end, widget.end,
+        (v) => PhysicsAnimatedProperty(key: 'end', initialValue: v));
+    _bottom = visitor(_bottom, widget.bottom,
+        (v) => PhysicsAnimatedProperty(key: 'bottom', initialValue: v));
+    _width = visitor(_width, widget.width,
+        (v) => PhysicsAnimatedProperty(key: 'width', initialValue: v));
+    _height = visitor(_height, widget.height,
+        (v) => PhysicsAnimatedProperty(key: 'height', initialValue: v));
   }
 
   @override
   Widget build(BuildContext context) {
     return Positioned.directional(
       textDirection: Directionality.of(context),
-      start: _start?.evaluate(animation) ?? widget.start,
-      top: _top?.evaluate(animation) ?? widget.top,
-      end: _end?.evaluate(animation) ?? widget.end,
-      bottom: _bottom?.evaluate(animation) ?? widget.bottom,
-      width: _width?.evaluate(animation) ?? widget.width,
-      height: _height?.evaluate(animation) ?? widget.height,
+      start: evaluate(_start) ?? widget.start,
+      top: evaluate(_top) ?? widget.top,
+      end: evaluate(_end) ?? widget.end,
+      bottom: evaluate(_bottom) ?? widget.bottom,
+      width: evaluate(_width) ?? widget.width,
+      height: evaluate(_height) ?? widget.height,
       child: widget.child,
     );
   }
 }
 
+/// {@template a_scale}
 /// Physics-based equivalent of [AnimatedScale], renamed to [AScale].
 ///
 /// Animates changes in scale using physics-based animations, providing natural-feeling
@@ -1062,7 +1440,10 @@ class _APositionedDirectionalState
 /// * [ARotation] for rotating widgets
 /// * [ASlide] for translating widgets
 /// * [AOpacity] for fading widgets
+/// {@endtemplate}
 class AScale extends ImplicitlyPhysicsAnimatedWidget {
+  /// Creates a new [AScale].
+  /// {@macro a_scale}
   const AScale({
     super.key,
     required this.scale,
@@ -1092,31 +1473,28 @@ class AScale extends ImplicitlyPhysicsAnimatedWidget {
 }
 
 class _AScaleState extends PhysicsAnimatedWidgetState<AScale> {
-  Tween<double>? _scale;
-  late Animation<double> _scaleAnimation;
+  PhysicsAnimatedProperty? _scale;
 
   @override
-  void forEachTween(PhysicsTweenVisitor<dynamic> visitor) {
-    _scale =
-        visitor(_scale, widget.scale, (v) => Tween<double>(begin: v as double))
-            as Tween<double>?;
+  List<String> get physicsAnimatedProperties => ['scale'];
+
+  @override
+  void forEachPhysicsProperty(PhysicsPropertyVisitor visitor) {
+    _scale = visitor(_scale, widget.scale,
+        (v) => PhysicsAnimatedProperty(key: 'scale', initialValue: v))!;
   }
 
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<Tween<double>>('scale', _scale));
-  }
-
-  @override
-  void didUpdateTweens() {
-    _scaleAnimation = animation.drive(_scale!);
+    properties
+        .add(DiagnosticsProperty<PhysicsAnimatedProperty>('scale', _scale));
   }
 
   @override
   Widget build(BuildContext context) {
     return ScaleTransition(
-      scale: _scaleAnimation,
+      scale: getAnimation(_scale)!,
       alignment: widget.alignment,
       filterQuality: widget.filterQuality,
       child: widget.child,
@@ -1124,6 +1502,7 @@ class _AScaleState extends PhysicsAnimatedWidgetState<AScale> {
   }
 }
 
+/// {@template a_rotation}
 /// Physics-based equivalent of [AnimatedRotation], renamed to [ARotation].
 ///
 /// Animates changes in rotation using physics-based animations. This widget is useful
@@ -1176,7 +1555,10 @@ class _AScaleState extends PhysicsAnimatedWidgetState<AScale> {
 /// See also:
 /// * [AScale] for scaling animations
 /// * [ASlide] for translation animations
+/// {@endtemplate}
 class ARotation extends ImplicitlyPhysicsAnimatedWidget {
+  /// Creates a new [ARotation].
+  /// {@macro a_rotation}
   const ARotation({
     super.key,
     required this.turns,
@@ -1206,31 +1588,28 @@ class ARotation extends ImplicitlyPhysicsAnimatedWidget {
 }
 
 class _ARotationState extends PhysicsAnimatedWidgetState<ARotation> {
-  Tween<double>? _turns;
-  late Animation<double> _turnsAnimation;
+  PhysicsAnimatedProperty? _turns;
 
   @override
-  void forEachTween(PhysicsTweenVisitor<dynamic> visitor) {
-    _turns =
-        visitor(_turns, widget.turns, (v) => Tween<double>(begin: v as double))
-            as Tween<double>?;
+  List<String> get physicsAnimatedProperties => ['turns'];
+
+  @override
+  void forEachPhysicsProperty(PhysicsPropertyVisitor visitor) {
+    _turns = visitor(_turns, widget.turns,
+        (v) => PhysicsAnimatedProperty(key: 'turns', initialValue: v))!;
   }
 
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<Tween<double>>('turns', _turns));
-  }
-
-  @override
-  void didUpdateTweens() {
-    _turnsAnimation = animation.drive(_turns!);
+    properties
+        .add(DiagnosticsProperty<PhysicsAnimatedProperty>('turns', _turns));
   }
 
   @override
   Widget build(BuildContext context) {
     return RotationTransition(
-      turns: _turnsAnimation,
+      turns: getAnimation(_turns)!,
       alignment: widget.alignment,
       filterQuality: widget.filterQuality,
       child: widget.child,
@@ -1238,6 +1617,7 @@ class _ARotationState extends PhysicsAnimatedWidgetState<ARotation> {
   }
 }
 
+/// {@template a_slide}
 /// Physics-based equivalent of [AnimatedSlide], renamed to [ASlide].
 ///
 /// Animates changes in position relative to its normal position using physics-based
@@ -1293,7 +1673,10 @@ class _ARotationState extends PhysicsAnimatedWidgetState<ARotation> {
 /// See also:
 /// * [APositioned] for absolute positioning within a [Stack]
 /// * [AAlign] for alignment-based positioning
+/// {@endtemplate}
 class ASlide extends ImplicitlyPhysicsAnimatedWidget {
+  /// Creates a new [ASlide].
+  /// {@macro a_slide}
   const ASlide({
     super.key,
     required this.offset,
@@ -1317,36 +1700,95 @@ class ASlide extends ImplicitlyPhysicsAnimatedWidget {
 }
 
 class _ASlideState extends PhysicsAnimatedWidgetState<ASlide> {
-  Tween<Offset>? _offset;
+  PhysicsAnimatedProperty? _offsetX;
+  PhysicsAnimatedProperty? _offsetY;
   late Animation<Offset> _offsetAnimation;
 
   @override
-  void forEachTween(PhysicsTweenVisitor<dynamic> visitor) {
-    _offset = visitor(
-            _offset, widget.offset, (v) => Tween<Offset>(begin: v as Offset))
-        as Tween<Offset>?;
+  List<String> get physicsAnimatedProperties => ['offsetX', 'offsetY'];
+
+  @override
+  void forEachPhysicsProperty(PhysicsPropertyVisitor visitor) {
+    _offsetX = visitor(_offsetX, widget.offset.dx,
+        (v) => PhysicsAnimatedProperty(key: 'offsetX', initialValue: v))!;
+    _offsetY = visitor(_offsetY, widget.offset.dy,
+        (v) => PhysicsAnimatedProperty(key: 'offsetY', initialValue: v))!;
   }
 
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<Tween<Offset>>('offset', _offset));
+    properties
+        .add(DiagnosticsProperty<PhysicsAnimatedProperty>('offsetX', _offsetX));
+    properties
+        .add(DiagnosticsProperty<PhysicsAnimatedProperty>('offsetY', _offsetY));
   }
 
   @override
-  void didUpdateTweens() {
-    _offsetAnimation = animation.drive(_offset!);
+  void didUpdatePhysicsProperties() {
+    final x = getAnimation(_offsetX)!;
+    final y = getAnimation(_offsetY)!;
+    _offsetAnimation = _OffsetAnimation(x, y);
   }
 
   @override
   Widget build(BuildContext context) {
-    return SlideTransition(
-      position: _offsetAnimation,
-      child: widget.child,
-    );
+    return SlideTransition(position: _offsetAnimation, child: widget.child);
   }
 }
 
+/// Helper class to combine 2 double animations into an offset animation.
+class _OffsetAnimation extends Animation<Offset>
+    with
+        AnimationLazyListenerMixin,
+        AnimationLocalListenersMixin,
+        AnimationLocalStatusListenersMixin {
+  _OffsetAnimation(this.x, this.y);
+  final Animation<double> x, y;
+
+  @override
+  Offset get value => Offset(x.value, y.value);
+
+  @override
+  void didStartListening() {
+    x.addListener(_maybeNotifyListeners);
+    x.addStatusListener(_maybeNotifyStatusListeners);
+    y.addListener(_maybeNotifyListeners);
+    y.addStatusListener(_maybeNotifyStatusListeners);
+  }
+
+  @override
+  void didStopListening() {
+    x.removeListener(_maybeNotifyListeners);
+    x.removeStatusListener(_maybeNotifyStatusListeners);
+    y.removeListener(_maybeNotifyListeners);
+    y.removeStatusListener(_maybeNotifyStatusListeners);
+  }
+
+  @override
+  AnimationStatus get status => y.status.isAnimating ? y.status : x.status;
+
+  @override
+  String toString() => 'OffsetAnimation($x, $y)';
+
+  AnimationStatus? _lastStatus;
+  void _maybeNotifyStatusListeners(AnimationStatus _) {
+    if (status != _lastStatus) {
+      _lastStatus = status;
+      notifyStatusListeners(status);
+    }
+  }
+
+  Offset? _lastValue;
+  void _maybeNotifyListeners() {
+    if (value != _lastValue) {
+      _lastValue = value;
+      notifyListeners();
+    }
+  }
+}
+
+/// {@template a_opacity_full}
 /// Physics-based equivalent of [AnimatedOpacity], renamed to [AOpacity].
 ///
 /// {@template a_opacity}
@@ -1406,7 +1848,10 @@ class _ASlideState extends PhysicsAnimatedWidgetState<ASlide> {
 /// )
 /// ```
 /// {@endtemplate}
+/// {@endtemplate}
 class AOpacity extends ImplicitlyPhysicsAnimatedWidget {
+  /// Creates a new [AOpacity].
+  /// {@macro a_opacity_full}
   const AOpacity({
     super.key,
     super.duration,
@@ -1434,41 +1879,41 @@ class AOpacity extends ImplicitlyPhysicsAnimatedWidget {
 }
 
 class _AOpacityState extends PhysicsAnimatedWidgetState<AOpacity> {
-  Tween<double>? _opacity;
-  late Animation<double> _opacityAnimation;
+  PhysicsAnimatedProperty? _opacity;
 
   @override
-  void forEachTween(PhysicsTweenVisitor<dynamic> visitor) {
-    _opacity = visitor(
-            _opacity, widget.opacity, (v) => Tween<double>(begin: v as double))
-        as Tween<double>?;
-  }
+  List<String> get physicsAnimatedProperties => ['opacity'];
 
   @override
-  void didUpdateTweens() {
-    _opacityAnimation = animation.drive(_opacity!);
+  void forEachPhysicsProperty(PhysicsPropertyVisitor visitor) {
+    _opacity = visitor(_opacity, widget.opacity,
+        (v) => PhysicsAnimatedProperty(key: 'opacity', initialValue: v))!;
   }
 
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(
-        DiagnosticsProperty<Animation<double>>('opacity', _opacityAnimation));
+    properties
+        .add(DiagnosticsProperty<PhysicsAnimatedProperty>('opacity', _opacity));
   }
 
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
-      opacity: _opacityAnimation,
+      opacity: getAnimation(_opacity)!,
       alwaysIncludeSemantics: widget.alwaysIncludeSemantics,
       child: widget.child,
     );
   }
 }
 
+/// {@template a_sliver_opacity}
 /// Physics-based equivalent of [SliverAnimatedOpacity], renamed to [ASliverOpacity].
 /// {@macro a_opacity}
+/// {@endtemplate}
 class ASliverOpacity extends ImplicitlyPhysicsAnimatedWidget {
+  /// Creates a new [ASliverOpacity].
+  /// {@macro a_sliver_opacity}
   const ASliverOpacity({
     super.key,
     super.duration,
@@ -1495,19 +1940,22 @@ class ASliverOpacity extends ImplicitlyPhysicsAnimatedWidget {
   }
 }
 
-class _ASliverOpacityState extends PhysicsAnimatedWidgetState<ASliverOpacity> {
-  Tween<double>? _opacity;
+class _ASliverOpacityState
+    extends PhysicsAnimatedWidgetBaseState<ASliverOpacity> {
+  PhysicsAnimatedProperty? _opacity;
 
   @override
-  void forEachTween(PhysicsTweenVisitor<dynamic> visitor) {
-    _opacity = visitor(
-            _opacity, widget.opacity, (v) => Tween<double>(begin: v as double))
-        as Tween<double>?;
+  List<String> get physicsAnimatedProperties => ['opacity'];
+
+  @override
+  void forEachPhysicsProperty(PhysicsPropertyVisitor visitor) {
+    _opacity = visitor(_opacity, widget.opacity,
+        (v) => PhysicsAnimatedProperty(key: 'opacity', initialValue: v))!;
   }
 
   @override
   Widget build(BuildContext context) {
-    final double val = _opacity?.evaluate(animation) ?? widget.opacity;
+    final val = evaluate(_opacity)!;
     return SliverOpacity(
       opacity: val.clamp(0.0, 1.0),
       sliver: widget.sliver,
@@ -1518,10 +1966,12 @@ class _ASliverOpacityState extends PhysicsAnimatedWidgetState<ASliverOpacity> {
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<Tween<double>>('opacity', _opacity));
+    properties
+        .add(DiagnosticsProperty<PhysicsAnimatedProperty>('opacity', _opacity));
   }
 }
 
+/// {@template a_default_text_style}
 /// Physics-based equivalent of [AnimatedDefaultTextStyle], renamed to [ADefaultTextStyle].
 ///
 /// Animates changes in text style using physics-based animations. This is particularly
@@ -1581,7 +2031,10 @@ class _ASliverOpacityState extends PhysicsAnimatedWidgetState<ASliverOpacity> {
 /// See also:
 /// * [AOpacity] for fading text in and out
 /// * [AContainer] for animating text containers
+/// {@endtemplate}
 class ADefaultTextStyle extends ImplicitlyPhysicsAnimatedWidget {
+  /// Creates a new [ADefaultTextStyle].
+  /// {@macro a_default_text_style}
   const ADefaultTextStyle({
     super.key,
     required this.style,
@@ -1630,7 +2083,7 @@ class ADefaultTextStyle extends ImplicitlyPhysicsAnimatedWidget {
 }
 
 class _ADefaultTextStyleState
-    extends PhysicsAnimatedWidgetState<ADefaultTextStyle> with RebuildOnTick {
+    extends PhysicsAnimatedWidgetBaseState<ADefaultTextStyle> {
   TextStyleTween? _style;
 
   @override
@@ -1662,6 +2115,7 @@ class _ADefaultTextStyleState
   }
 }
 
+/// {@template a_physical_model}
 /// Physics-based equivalent of [AnimatedPhysicalModel], renamed to [APhysicalModel].
 ///
 /// Animates changes in elevation and colors using physics-based animations. This widget
@@ -1717,7 +2171,10 @@ class _ADefaultTextStyleState
 /// See also:
 /// * [AContainer] for simpler container animations
 /// * [AOpacity] for fading effects
+/// {@endtemplate}
 class APhysicalModel extends ImplicitlyPhysicsAnimatedWidget {
+  /// Creates a new [APhysicalModel].
+  /// {@macro a_physical_model}
   const APhysicalModel({
     super.key,
     super.duration,
@@ -1768,12 +2225,16 @@ class APhysicalModel extends ImplicitlyPhysicsAnimatedWidget {
   }
 }
 
-class _APhysicalModelState extends PhysicsAnimatedWidgetState<APhysicalModel>
-    with RebuildOnTick {
+class _APhysicalModelState
+    extends PhysicsAnimatedWidgetBaseState<APhysicalModel> {
   BorderRadiusTween? _borderRadius;
-  Tween<double>? _elevation;
   ColorTween? _color;
   ColorTween? _shadowColor;
+
+  PhysicsAnimatedProperty? _elevation;
+
+  @override
+  List<String> get physicsAnimatedProperties => ['elevation'];
 
   @override
   void forEachTween(PhysicsTweenVisitor<dynamic> visitor) {
@@ -1782,12 +2243,16 @@ class _APhysicalModelState extends PhysicsAnimatedWidgetState<APhysicalModel>
             widget.borderRadius ?? BorderRadius.zero,
             (v) => BorderRadiusTween(begin: v as BorderRadius))
         as BorderRadiusTween?;
-    _elevation = visitor(_elevation, widget.elevation,
-        (v) => Tween<double>(begin: v as double)) as Tween<double>?;
     _color = visitor(_color, widget.color, (v) => ColorTween(begin: v as Color))
         as ColorTween?;
     _shadowColor = visitor(_shadowColor, widget.shadowColor,
         (v) => ColorTween(begin: v as Color)) as ColorTween?;
+  }
+
+  @override
+  void forEachPhysicsProperty(PhysicsPropertyVisitor visitor) {
+    _elevation = visitor(_elevation, widget.elevation,
+        (v) => PhysicsAnimatedProperty(key: 'elevation', initialValue: v));
   }
 
   @override
@@ -1801,7 +2266,8 @@ class _APhysicalModelState extends PhysicsAnimatedWidgetState<APhysicalModel>
       shape: widget.shape,
       clipBehavior: widget.clipBehavior,
       borderRadius: _borderRadius?.evaluate(animation),
-      elevation: _elevation?.evaluate(animation) ?? widget.elevation,
+      elevation: (evaluate(_elevation) ?? widget.elevation)
+          .clamp(0.0, double.infinity),
       color: colorVal ?? widget.color,
       shadowColor: shadowVal ?? widget.shadowColor,
       child: widget.child,
@@ -1813,13 +2279,15 @@ class _APhysicalModelState extends PhysicsAnimatedWidgetState<APhysicalModel>
     super.debugFillProperties(properties);
     properties.add(
         DiagnosticsProperty<BorderRadiusTween>('borderRadius', _borderRadius));
-    properties.add(DiagnosticsProperty<Tween<double>>('elevation', _elevation));
+    properties.add(
+        DiagnosticsProperty<PhysicsAnimatedProperty>('elevation', _elevation));
     properties.add(DiagnosticsProperty<ColorTween>('color', _color));
     properties
         .add(DiagnosticsProperty<ColorTween>('shadowColor', _shadowColor));
   }
 }
 
+/// {@template a_fractionally_sized_box}
 /// Physics-based equivalent of [AnimatedFractionallySizedBox], renamed to [AFractionallySizedBox].
 ///
 /// Animates changes in fractional dimensions using physics-based animations. This widget
@@ -1880,7 +2348,10 @@ class _APhysicalModelState extends PhysicsAnimatedWidgetState<APhysicalModel>
 /// See also:
 /// * [AContainer] for more general container animations
 /// * [AAlign] for alignment-based positioning
+/// {@endtemplate}
 class AFractionallySizedBox extends ImplicitlyPhysicsAnimatedWidget {
+  /// Creates a new [AFractionallySizedBox].
+  /// {@macro a_fractionally_sized_box}
   const AFractionallySizedBox({
     super.key,
     super.duration,
@@ -1892,8 +2363,32 @@ class AFractionallySizedBox extends ImplicitlyPhysicsAnimatedWidget {
     super.onEnd,
   });
 
-  final AlignmentGeometry alignment;
+  /// How to align the child within the available space.
+  ///
+  /// The default is [Alignment.center].
+  ///
+  /// See also:
+  ///
+  ///  * [Alignment], a class with convenient constants typically used to
+  ///    specify an [AlignmentGeometry].
+  ///  * [AlignmentDirectional], like [Alignment] for specifying alignments
+  ///    relative to text direction.
+  final Alignment alignment;
+
+  /// If non-null, the fraction of the incoming width given to the child.
+  ///
+  /// If non-null, the child is given a tight width constraint that is the product
+  /// of the incoming width constraint and this factor.
+  ///
+  /// If null, the child is given the incoming width constraints.
   final double? widthFactor;
+
+  /// If non-null, the fraction of the incoming height given to the child.
+  ///
+  /// If non-null, the child is given a tight height constraint that is the product
+  /// of the incoming height constraint and this factor.
+  ///
+  /// If null, the child is given the incoming height constraints.
   final double? heightFactor;
   final Widget? child;
 
@@ -1903,40 +2398,45 @@ class AFractionallySizedBox extends ImplicitlyPhysicsAnimatedWidget {
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties
-        .add(DiagnosticsProperty<AlignmentGeometry>('alignment', alignment));
+    properties.add(DiagnosticsProperty<Alignment>('alignment', alignment));
     properties.add(DoubleProperty('widthFactor', widthFactor));
     properties.add(DoubleProperty('heightFactor', heightFactor));
   }
 }
 
 class _AFractionallySizedBoxState
-    extends PhysicsAnimatedWidgetState<AFractionallySizedBox>
-    with RebuildOnTick {
-  AlignmentGeometryTween? _alignment;
-  Tween<double>? _widthFactor;
-  Tween<double>? _heightFactor;
+    extends PhysicsAnimatedWidgetBaseState<AFractionallySizedBox> {
+  PhysicsAnimatedProperty? _alignmentX,
+      _alignmentY,
+      _widthFactor,
+      _heightFactor;
 
   @override
-  void forEachTween(PhysicsTweenVisitor<dynamic> visitor) {
-    _alignment = visitor(_alignment, widget.alignment,
-            (v) => AlignmentGeometryTween(begin: v as AlignmentGeometry))
-        as AlignmentGeometryTween?;
+  List<String> get physicsAnimatedProperties =>
+      ['alignmentX', 'alignmentY', 'widthFactor', 'heightFactor'];
+
+  @override
+  void forEachPhysicsProperty(PhysicsPropertyVisitor visitor) {
+    _alignmentX = visitor(_alignmentX, widget.alignment.x,
+        (v) => PhysicsAnimatedProperty(key: 'alignmentX', initialValue: v));
+    _alignmentY = visitor(_alignmentY, widget.alignment.y,
+        (v) => PhysicsAnimatedProperty(key: 'alignmentY', initialValue: v));
     _widthFactor = visitor(_widthFactor, widget.widthFactor,
-        (v) => Tween<double>(begin: v as double)) as Tween<double>?;
+        (v) => PhysicsAnimatedProperty(key: 'widthFactor', initialValue: v));
     _heightFactor = visitor(_heightFactor, widget.heightFactor,
-        (v) => Tween<double>(begin: v as double)) as Tween<double>?;
+        (v) => PhysicsAnimatedProperty(key: 'heightFactor', initialValue: v));
   }
 
   @override
   Widget build(BuildContext context) {
-    final alignVal = _alignment?.evaluate(animation) ?? widget.alignment;
-    final wVal = _widthFactor?.evaluate(animation) ?? widget.widthFactor;
-    final hVal = _heightFactor?.evaluate(animation) ?? widget.heightFactor;
+    final alignX = evaluate(_alignmentX);
+    final alignY = evaluate(_alignmentY);
     return FractionallySizedBox(
-      alignment: alignVal,
-      widthFactor: wVal?.clamp(0.0, double.infinity),
-      heightFactor: hVal?.clamp(0.0, double.infinity),
+      alignment: alignX != null && alignY != null
+          ? Alignment(alignX, alignY)
+          : widget.alignment,
+      widthFactor: evaluate(_widthFactor)?.clamp(0.0, double.infinity),
+      heightFactor: evaluate(_heightFactor)?.clamp(0.0, double.infinity),
       child: widget.child,
     );
   }
@@ -1944,11 +2444,13 @@ class _AFractionallySizedBoxState
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(
-        DiagnosticsProperty<AlignmentGeometryTween>('alignment', _alignment));
-    properties
-        .add(DiagnosticsProperty<Tween<double>>('widthFactor', _widthFactor));
-    properties
-        .add(DiagnosticsProperty<Tween<double>>('heightFactor', _heightFactor));
+    properties.add(DiagnosticsProperty<PhysicsAnimatedProperty>(
+        'alignmentX', _alignmentX));
+    properties.add(DiagnosticsProperty<PhysicsAnimatedProperty>(
+        'alignmentY', _alignmentY));
+    properties.add(DiagnosticsProperty<PhysicsAnimatedProperty>(
+        'widthFactor', _widthFactor));
+    properties.add(DiagnosticsProperty<PhysicsAnimatedProperty>(
+        'heightFactor', _heightFactor));
   }
 }

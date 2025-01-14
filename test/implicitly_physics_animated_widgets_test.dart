@@ -1,3 +1,4 @@
+import 'package:flutter_physics/src/other_widgets/better_padding.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_physics/flutter_physics.dart';
@@ -498,8 +499,8 @@ void main() {
     );
     var physicalModel =
         tester.widget<PhysicalModel>(find.byType(PhysicalModel));
-    expect(physicalModel.elevation, 2.0);
-    expect(physicalModel.color, Colors.black);
+    expect(physicalModel.elevation, closeTo(2.0, 0.001));
+    expect(physicalModel.color, matchesColor(Colors.black));
 
     // Animate to elevation=10, color=blue
     await tester.pumpWidget(
@@ -543,7 +544,7 @@ void main() {
 
     var fractionalBox =
         tester.widget<FractionallySizedBox>(find.byType(FractionallySizedBox));
-    expect(fractionalBox.widthFactor, 0.5);
+    expect(fractionalBox.widthFactor, closeTo(0.5, 0.001));
 
     // Animate to 1.0
     await tester.pumpWidget(

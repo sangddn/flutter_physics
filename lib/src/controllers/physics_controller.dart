@@ -1,3 +1,6 @@
+import 'dart:collection';
+import 'dart:math' as math;
+
 import 'package:flutter/animation.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/physics.dart';
@@ -7,6 +10,7 @@ import 'package:flutter/semantics.dart';
 import '../simulations/physics_simulations.dart';
 
 part 'physics_controller_2d.dart';
+part 'physics_controller_multi.dart';
 
 /// {@template physics_controller}
 /// A controller for physics-based animations that supports both standard curves and physics simulations.
