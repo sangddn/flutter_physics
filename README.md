@@ -2,13 +2,13 @@
 
 Physics-based animation primitives for Flutter, with drop-in replacements for Flutter's animation controllers and implicitly animated widgets. **Unify** curves and physics in one powerful system!
 
-![Physics Grid Demo](docs/physics_grid.gif)
+![Physics Grid Demo](images/physics_grid.gif)
 
 A springy grid of cells that:
 - Can be dragged around with Spring physics
 - Smoothly reacts to being "grabbed" mid-flight
 
-![AnimatedContainer vs. AContainer](docs/container_comparison.gif)
+![AnimatedContainer vs. AContainer](images/container_comparison.gif)
 Observe how the physics-based `AContainer`'s velocity is preserved when the container is resized mid-flight, while the standard `AnimatedContainer` results in a sudden jump in velocity.
 
 ---
