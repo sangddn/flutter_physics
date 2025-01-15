@@ -1,6 +1,6 @@
 name: flutter_physics
 description: "A Flutter package providing physics-based animations including customizable spring and gravity simulations that can be used both as physics simulations and animation curves."
-version: 0.0.1
+version: 0.0.2
 homepage: https://github.com/sangddn/flutter_physics
 repository: https://github.com/sangddn/flutter_physics
 issue_tracker: https://github.com/sangddn/flutter_physics/issues
