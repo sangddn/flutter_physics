@@ -905,8 +905,8 @@ class _ASizedBoxState extends PhysicsAnimatedWidgetBaseState<ASizedBox> {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: evaluate(_width),
-      height: evaluate(_height),
+      width: evaluate(_width)?.clamp(0, double.infinity),
+      height: evaluate(_height)?.clamp(0, double.infinity),
       child: widget.child,
     );
   }

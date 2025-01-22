@@ -1,3 +1,7 @@
+## 0.0.2+2
+
+* Bug fix for ASizedBox to normalize size.
+
 ## 0.0.2+1
 
 * Update README.md
