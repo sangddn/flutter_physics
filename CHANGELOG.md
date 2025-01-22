@@ -1,4 +1,4 @@
-## 0.0.2+2
+## 0.0.3
 
 * Bug fix for ASizedBox to normalize size.
 
