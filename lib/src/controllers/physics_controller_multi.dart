@@ -491,9 +491,6 @@ class PhysicsControllerMulti extends Animation<UnmodifiableListView<double>>
         List.generate(
           physics.length,
           (index) {
-            if (_value[index] == target[index]) {
-              return _NoSimulation(_value[index]);
-            }
             final p = physics![index] as PhysicsSimulation;
             return p.copyWith(
               start: _value[index],
@@ -723,19 +720,14 @@ UnmodifiableListView<double> _clampDoubles(
 
 extension _MultiSimulations on List<Simulation> {
   bool isPhysicsBased() => every((e) => e is PhysicsSimulation);
-
   bool isDone(double t) => every((e) => e.isDone(t));
 
   UnmodifiableListView<double> dx(double t) {
-    return UnmodifiableListView(
-      map((e) => e.x(t)).toList(growable: false),
-    );
+    return UnmodifiableListView(map((e) => e.dx(t)).toList(growable: false));
   }
 
   UnmodifiableListView<double> x(double t) {
-    return UnmodifiableListView(
-      map((e) => e.x(t)).toList(growable: false),
-    );
+    return UnmodifiableListView(map((e) => e.x(t)).toList(growable: false));
   }
 }
 
@@ -752,8 +744,7 @@ extension _Utils on List<double> {
   }
 
   double get euclideanDistance {
-    return math.sqrt(indexedMap((index, e) => math.pow(e, 2).toDouble())
-        .reduce((x, y) => x + y));
+    return math.sqrt(map((e) => (e * e)).reduce((x, y) => x + y));
   }
 
   bool isAllFinite() => every((e) => e.isFinite);

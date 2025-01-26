@@ -859,18 +859,3 @@ class _RepeatingSimulation extends Simulation {
   @override
   bool isDone(double timeInSeconds) => timeInSeconds >= _exitTimeInSeconds;
 }
-
-class _NoSimulation extends Simulation {
-  _NoSimulation(this.value);
-
-  final double value;
-
-  @override
-  double x(double timeInSeconds) => value;
-
-  @override
-  double dx(double timeInSeconds) => 0.0;
-
-  @override
-  bool isDone(double timeInSeconds) => true;
-}
