@@ -1,3 +1,7 @@
+## 0.0.4
+
+* Bug fix for PhysicsControllerMulti and PhysicsBuilderMulti.
+
 ## 0.0.3
 
 * Bug fix for ASizedBox to normalize size.
