@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
@@ -492,12 +494,21 @@ class PhysicsBuilderMultiState extends State<PhysicsBuilderMulti>
   late final controller = PhysicsControllerMulti(
     dimensions: widget.dimensions,
     value: widget.value,
-    lowerBound: widget.lowerBound,
-    upperBound: widget.upperBound,
+    lowerBound: widget.lowerBound ??
+        List.filled(widget.dimensions, double.negativeInfinity),
+    upperBound:
+        widget.upperBound ?? List.filled(widget.dimensions, double.infinity),
     duration: widget.duration,
     reverseDuration: widget.reverseDuration,
+    defaultPhysics: _getPhysics(),
     vsync: this,
   );
+
+  List<Physics> _getPhysics() =>
+      widget.physics ??
+      (widget.physicsForAllDimensions == null
+          ? List.filled(widget.dimensions, Spring.elegant)
+          : List.filled(widget.dimensions, widget.physicsForAllDimensions!));
 
   @override
   void initState() {
@@ -513,8 +524,6 @@ class PhysicsBuilderMultiState extends State<PhysicsBuilderMulti>
   @override
   void didUpdateWidget(PhysicsBuilderMulti oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // We don't need to update the physics, as it's passed to the controller
-    // in [animateTo] calls.
     if (widget.duration != oldWidget.duration) {
       controller.duration = widget.duration;
     }
@@ -524,14 +533,10 @@ class PhysicsBuilderMultiState extends State<PhysicsBuilderMulti>
     if (!listEquals(widget.value, oldWidget.value)) {
       widget.onValueChanged?.call(widget.value);
       controller.animateTo(
-        widget.value,
+        UnmodifiableListView(widget.value),
         velocityDelta: widget.velocityDelta,
         velocityOverride: widget.velocityOverride,
-        physics: widget.physics ??
-            (widget.physicsForAllDimensions == null
-                ? null
-                : List.filled(
-                    widget.dimensions, widget.physicsForAllDimensions!)),
+        physics: _getPhysics(),
       );
     }
   }
@@ -546,7 +551,7 @@ class PhysicsBuilderMultiState extends State<PhysicsBuilderMulti>
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: controller,
         builder: (context, child) =>
-            widget.builder(context, controller.value, child),
+            widget.builder(context, List<double>.from(controller.value), child),
         child: widget.child,
       );
 }
