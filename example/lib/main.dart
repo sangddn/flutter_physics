@@ -3,6 +3,7 @@ import 'implicit_animations_page.dart';
 import 'interrupted_animations_page.dart';
 import 'physics_playground_page.dart';
 import 'physics_grid.dart';
+import 'physics_builder_multi.dart';
 
 void main() {
   runApp(const MyApp());
@@ -61,6 +62,12 @@ class HomePage extends StatelessWidget {
                 context,
                 'Physics Grid',
                 const PhysicsGrid(),
+              ),
+              const SizedBox(height: 16),
+              _buildNavigationButton(
+                context,
+                'Tilted Card',
+                const TiltedCard(),
               ),
             ],
           ),
