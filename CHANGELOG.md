@@ -1,3 +1,8 @@
+## 0.0.5
+
+* `PhysicsController` now implements the `AnimationController` interface, so it can (really) be used as a drop-in replacement for `AnimationController`.
+* New methods added to `PhysicsController`: `toggle`, `animateTo`.
+
 ## 0.0.4
 
 * Bug fix for PhysicsControllerMulti and PhysicsBuilderMulti.
