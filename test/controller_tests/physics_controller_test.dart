@@ -70,6 +70,92 @@ void main() {
       expect(controller.isAnimating, isFalse);
       expect(controller.value, equals(intermediateValue));
     });
+
+    testWidgets('animateBack with physics simulation',
+        (WidgetTester tester) async {
+      controller.value = 1.0;
+      await tester.pump();
+
+      controller.animateBack(0.0);
+
+      expect(controller.status, equals(AnimationStatus.reverse));
+      expect(controller.isAnimating, isTrue);
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(controller.value, lessThan(1.0));
+      expect(controller.value, greaterThan(0.0));
+      expect(controller.velocity, lessThan(0.0)); // Moving backwards
+
+      await tester.pumpAndSettle();
+
+      expect(controller.value, closeTo(0.0, 0.0001));
+      expect(controller.status, equals(AnimationStatus.dismissed));
+      expect(controller.isAnimating, isFalse);
+    });
+
+    testWidgets('animateBack with velocityDelta', (WidgetTester tester) async {
+      controller.value = 1.0;
+      await tester.pump();
+
+      controller.animateBack(0.0, velocityDelta: -50.0);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 10));
+
+      expect(controller.velocity, lessThan(-40.0)); // Should be around -50
+      expect(controller.status, equals(AnimationStatus.reverse));
+
+      await tester.pumpAndSettle();
+      expect(controller.value, closeTo(0.0, 0.0001));
+    });
+
+    testWidgets('toggle from forward to reverse', (WidgetTester tester) async {
+      controller.forward();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final intermediateValue = controller.value;
+      controller.toggle();
+
+      expect(controller.status, equals(AnimationStatus.reverse));
+      expect(controller.isAnimating, isTrue);
+      expect(controller.value, equals(intermediateValue));
+
+      await tester.pumpAndSettle();
+      expect(controller.value, closeTo(0.0, 0.0001));
+      expect(controller.status, equals(AnimationStatus.dismissed));
+    });
+
+    testWidgets('toggle from reverse to forward', (WidgetTester tester) async {
+      controller.value = 1.0;
+      controller.reverse();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final intermediateValue = controller.value;
+      controller.toggle();
+
+      expect(controller.status, equals(AnimationStatus.forward));
+      expect(controller.isAnimating, isTrue);
+      expect(controller.value, equals(intermediateValue));
+
+      await tester.pumpAndSettle();
+      expect(controller.value, closeTo(1.0, 0.0001));
+      expect(controller.status, equals(AnimationStatus.completed));
+    });
+
+    testWidgets('toggle with from parameter', (WidgetTester tester) async {
+      controller.toggle(from: 0.5);
+
+      expect(controller.value, equals(0.5));
+      expect(controller.status, equals(AnimationStatus.forward));
+      expect(controller.isAnimating, isTrue);
+
+      await tester.pumpAndSettle();
+      expect(controller.value, closeTo(1.0, 0.0001));
+      expect(controller.status, equals(AnimationStatus.completed));
+    });
   });
 
   group('Physics simulations', () {
