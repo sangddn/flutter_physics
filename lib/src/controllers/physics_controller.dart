@@ -141,7 +141,8 @@ class PhysicsController extends Animation<double>
     with
         AnimationEagerListenerMixin,
         AnimationLocalListenersMixin,
-        AnimationLocalStatusListenersMixin {
+        AnimationLocalStatusListenersMixin
+    implements AnimationController {
   /// Creates a physics-based animation controller.
   ///
   /// {@macro physics_controller}
@@ -188,9 +189,11 @@ class PhysicsController extends Animation<double>
   }
 
   /// The value at which this animation is deemed to be dismissed.
+  @override
   final double lowerBound;
 
   /// The value at which this animation is deemed to be completed.
+  @override
   final double upperBound;
 
   /// The default physics simulation to use for this controller.
@@ -234,24 +237,30 @@ class PhysicsController extends Animation<double>
   }
 
   /// A label that is used in the [toString] output.
+  @override
   final String? debugLabel;
 
   /// The behavior of the controller when [AccessibilityFeatures.disableAnimations]
   /// is true.
+  @override
   final AnimationBehavior animationBehavior;
 
   /// Returns an [Animation<double>] for this animation controller.
+  @override
   Animation<double> get view => this;
 
   /// The length of time this animation should last.
+  @override
   Duration? duration;
 
   /// The length of time this animation should last when going in [reverse].
+  @override
   Duration? reverseDuration;
 
   Ticker? _ticker;
 
   /// Recreates the [Ticker] with the new [TickerProvider].
+  @override
   void resync(TickerProvider vsync) {
     final Ticker oldTicker = _ticker!;
     _ticker = vsync.createTicker(_tick);
@@ -266,6 +275,7 @@ class PhysicsController extends Animation<double>
   late double _value;
 
   /// Stops the animation controller and sets the current value.
+  @override
   set value(double newValue) {
     stop();
     _internalSetValue(newValue);
@@ -274,6 +284,7 @@ class PhysicsController extends Animation<double>
   }
 
   /// Sets the controller's value to [lowerBound], stopping the animation.
+  @override
   void reset() {
     value = lowerBound;
   }
@@ -281,6 +292,7 @@ class PhysicsController extends Animation<double>
   /// The current velocity of the animation.
   ///
   /// Returns 0.0 when not animating.
+  @override
   double get velocity {
     if (!isAnimating) {
       return 0.0;
@@ -303,6 +315,7 @@ class PhysicsController extends Animation<double>
   }
 
   /// The amount of time that has passed between animation start and last tick.
+  @override
   Duration? get lastElapsedDuration => _lastElapsedDuration;
   Duration? _lastElapsedDuration;
 
@@ -317,6 +330,7 @@ class PhysicsController extends Animation<double>
   late AnimationStatus _status;
 
   /// Starts running this animation forwards (towards the end).
+  @override
   TickerFuture forward({double? from}) {
     assert(
       _ticker != null,
@@ -331,6 +345,7 @@ class PhysicsController extends Animation<double>
   }
 
   /// Starts running this animation in reverse (towards the beginning).
+  @override
   TickerFuture reverse({double? from}) {
     assert(
       _ticker != null,
@@ -376,24 +391,27 @@ class PhysicsController extends Animation<double>
   ///   physics: Curves.easeOut,
   /// );
   /// ```
+  @override
   TickerFuture animateTo(
     double target, {
-    double velocityDelta = 0.0,
+    double? velocityDelta = 0.0,
     double? velocityOverride,
     Duration? duration,
     Physics? physics,
+    Curve? curve,
   }) {
-    physics ??= defaultPhysics;
+    assert(
+      curve == null || physics == null,
+      'Curve is only supported when physics is a PhysicsSimulation.',
+    );
     assert(
       _ticker != null,
       'PhysicsController.animateTo() called after PhysicsController.dispose()\n'
       'PhysicsController methods should not be used after calling dispose.',
     );
-    assert(
-      physics is PhysicsSimulation ||
-          (velocityOverride == null && velocityDelta == 0.0),
-      'VelocityDelta and VelocityOverride are only supported when physics is a PhysicsSimulation.',
-    );
+
+    physics ??= curve ?? defaultPhysics;
+    velocityDelta ??= 0.0;
     _direction = _AnimationDirection.forward;
 
     return _animateToInternal(
@@ -412,6 +430,11 @@ class PhysicsController extends Animation<double>
     double velocityDelta = 0.0,
     double? velocityOverride,
   }) {
+    assert(
+      physics is PhysicsSimulation ||
+          (velocityOverride == null && velocityDelta == 0.0),
+      'VelocityDelta and VelocityOverride are only supported when physics is a PhysicsSimulation.',
+    );
     Duration? simulationDuration = duration;
     if (simulationDuration == null) {
       final range = upperBound - lowerBound;
@@ -489,6 +512,7 @@ class PhysicsController extends Animation<double>
   /// Drives the animation with a spring simulation. This is purely for
   /// compatibility with the [AnimationController.fling] method and can be
   /// replaced with [animateTo] with a [Spring].
+  @override
   @Deprecated('Use `animateTo` with a `Spring` instead.')
   TickerFuture fling({
     double velocity = 1.0,
@@ -523,6 +547,7 @@ class PhysicsController extends Animation<double>
   }
 
   /// Drives the animation according to the given simulation.
+  @override
   TickerFuture animateWith(Simulation simulation) {
     assert(
       _ticker != null,
@@ -554,6 +579,7 @@ class PhysicsController extends Animation<double>
 
   /// Stops running this animation and returns the current velocity of the
   /// simulation.
+  @override
   double stop({bool canceled = true}) {
     assert(
       _ticker != null,
@@ -683,6 +709,7 @@ class PhysicsController extends Animation<double>
   /// The [min] and [max] parameters default to [lowerBound] and [upperBound].
   /// When [reverse] is true, the animation alternates direction each cycle.
   /// The [count] parameter limits the number of repetitions (infinite by default).
+  @override
   TickerFuture repeat({
     double? min,
     double? max,
@@ -723,6 +750,64 @@ class PhysicsController extends Animation<double>
         ? AnimationStatus.forward
         : AnimationStatus.reverse;
     _checkStatusChanged();
+  }
+
+  @override
+  TickerFuture animateBack(
+    double target, {
+    double? velocityDelta,
+    double? velocityOverride,
+    Duration? duration,
+    Physics? physics,
+    Curve? curve,
+  }) {
+    assert(
+      physics == null || curve == null,
+      'Physics and Curve cannot be provided together.',
+    );
+    physics ??= curve ?? defaultPhysics;
+    assert(
+      physics is PhysicsSimulation ||
+          (velocityOverride == null && velocityDelta == 0.0),
+      'VelocityDelta and VelocityOverride are only supported when physics is a PhysicsSimulation.',
+    );
+    velocityDelta ??= 0.0;
+    _direction = _AnimationDirection.reverse;
+    return _animateToInternal(
+      target,
+      duration: duration,
+      physics: physics,
+      velocityDelta: velocityDelta,
+      velocityOverride: velocityOverride,
+    );
+  }
+
+  @override
+  TickerFuture toggle({double? from, Physics? physics, Duration? duration}) {
+    physics ??= defaultPhysics;
+    duration ??=
+        this.duration ?? (isForwardOrCompleted ? reverseDuration : null);
+    assert(
+      duration != null || physics is PhysicsSimulation,
+      'If physics is a regular Curve and not a PhysicsSimulation, a default duration must be provided.',
+    );
+    assert(
+      _ticker != null,
+      'PhysicsController.toggle() called after PhysicsController.dispose()\n'
+      'PhysicsController methods should not be used after calling dispose.',
+    );
+    _direction = isForwardOrCompleted
+        ? _AnimationDirection.reverse
+        : _AnimationDirection.forward;
+    if (from != null) value = from;
+    return _animateToInternal(
+      switch (_direction) {
+        _AnimationDirection.forward => upperBound,
+        _AnimationDirection.reverse => lowerBound,
+      },
+      physics: physics,
+      duration: duration,
+    );
   }
 }
 
