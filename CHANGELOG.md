@@ -1,3 +1,7 @@
+## 0.0.6-dev.0
+
+* Added `animateBackWith` to `PhysicsController` for compatibility with new `AnimationController` API in Flutter 3.29 (master).
+
 ## 0.0.5
 
 * `PhysicsController` now implements the `AnimationController` interface, so it can (really) be used as a drop-in replacement for `AnimationController`.
