@@ -809,18 +809,6 @@ class PhysicsController extends Animation<double>
       duration: duration,
     );
   }
-
-  @override
-  TickerFuture animateBackWith(Simulation simulation) {
-    assert(
-      _ticker != null,
-      'PhysicsController.animateBackWith() called after PhysicsController.dispose()\n'
-      'PhysicsController methods should not be used after calling dispose.',
-    );
-    stop();
-    _direction = _AnimationDirection.reverse;
-    return _startSimulation(simulation);
-  }
 }
 
 /// The direction in which an animation is running.
