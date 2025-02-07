@@ -1,7 +1,10 @@
-## 0.0.6-dev.0
+## 0.0.6+1
 
-* Added `animateBackWith` to `PhysicsController` for compatibility with new `AnimationController` API in Flutter 3.29 (master).
-* BREAKING: Bump Flutter min version to 3.27.0.
+* Update `CHANGELOG.md`
+
+## 0.0.6
+
+* Use `Color.fromARGB` instead of `Color.from` to accommodate Flutter versions before 3.27.0.
 
 ## 0.0.5
 
