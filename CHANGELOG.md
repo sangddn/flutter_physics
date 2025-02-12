@@ -1,3 +1,8 @@
+## 0.1.0
+
+* Added `animateBackWith` to `PhysicsController` for compatibility with new `AnimationController` API in Flutter 3.29 (master).
+* BREAKING: Bump min Flutter version to 3.27.0.
+
 ## 0.0.6+1
 
 * Update `CHANGELOG.md`

@@ -223,12 +223,12 @@ class AValue<T> extends StatefulWidget {
   static List<double> normalizeDouble(double value) => [value];
   static double denormalizeDouble(List<double> value) => value[0];
   static List<double> normalizeColor(Color value) =>
-      [value.red / 255, value.green / 255, value.blue / 255, value.alpha / 255];
-  static Color denormalizeColor(List<double> value) => Color.fromARGB(
-        (value[3] * 255).round(),
-        (value[0] * 255).round(),
-        (value[1] * 255).round(),
-        (value[2] * 255).round(),
+      [value.r, value.g, value.b, value.a];
+  static Color denormalizeColor(List<double> value) => Color.from(
+        alpha: value[3],
+        red: value[0],
+        green: value[1],
+        blue: value[2],
       );
   static List<double> normalizeSize(Size value) => [value.width, value.height];
   static Size denormalizeSize(List<double> value) => Size(value[0], value[1]);
