@@ -402,7 +402,7 @@ class PhysicsController extends Animation<double>
   }) {
     assert(
       curve == null || physics == null,
-      'Curve is only supported when physics is a PhysicsSimulation.',
+      'Only one of `curve` or `physics` can be provided.',
     );
     assert(
       _ticker != null,
