@@ -1,3 +1,11 @@
+## 0.2.0
+
+* **BREAKING**: Updated all predefined springs to be compatible with Flutter 3.32+ breaking changes to `SpringDescription`.
+* **BREAKING**: Bump min Flutter version to 3.32.0 due to underdamped spring physics corrections.
+* Fix: All predefined springs (swift, snap, playful, stern, float, buoyant, fling, slow, bob, boingoingoing) now use correct physics parameters to restore intended behavior after Flutter 3.32 migration.
+* **Migration Guide**: If you use custom SpringDescription objects with mass ≠ 1 and damping ratio < 1, migrate them using the [Flutter migration guide](https://docs.flutter.dev/release/breaking-changes/spring-description-underdamped).
+* New: Added `ATranslate` widget for implicit physics-based translation animations.
+
 ## 0.1.0
 
 * Added `animateBackWith` to `PhysicsController` for compatibility with new `AnimationController` API in Flutter 3.29 (master).
