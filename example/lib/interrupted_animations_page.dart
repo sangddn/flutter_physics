@@ -63,10 +63,15 @@ class _InterruptedAnimationsPageState extends State<InterruptedAnimationsPage>
                       return Slider(
                         value: _physicsController.value,
                         onChanged: (value) {
-                          _physicsController.animateTo(
-                            value,
-                            physics: Spring.playful,
-                          );
+                          final diff = value - _physicsController.value;
+                          if (diff.abs() < 0.1) {
+                            _physicsController.value = value;
+                          } else {
+                            _physicsController.animateTo(
+                              value,
+                              physics: Spring.playful,
+                            );
+                          }
                         },
                       );
                     },
@@ -90,11 +95,16 @@ class _InterruptedAnimationsPageState extends State<InterruptedAnimationsPage>
                       return Slider(
                         value: _animationController.value,
                         onChanged: (value) {
-                          _animationController.animateTo(
-                            value,
-                            duration: const Duration(milliseconds: 1000),
-                            curve: Curves.elasticOut,
-                          );
+                          final diff = value - _animationController.value;
+                          if (diff.abs() < 0.1) {
+                            _animationController.value = value;
+                          } else {
+                            _animationController.animateTo(
+                              value,
+                              duration: const Duration(milliseconds: 1000),
+                              curve: Curves.elasticOut,
+                            );
+                          }
                         },
                       );
                     },
