@@ -1786,6 +1786,156 @@ class _OffsetAnimation extends Animation<Offset>
   }
 }
 
+/// {@template a_translate_full}
+/// Physics-based equivalent of Transform.translate, named [ATranslate].
+///
+/// {@template a_translate}
+/// Animates changes in translation offset using physics-based animations, providing more natural
+/// and configurable transitions compared to curve-based animations.
+///
+/// Unlike [ASlide], which uses fractional offsets relative to the child's size,
+/// [ATranslate] uses absolute pixel offsets, making it ideal for precise positioning
+/// and gesture-based animations.
+///
+/// {@macro ImplicitlyPhysicsAnimatedWidget}
+///
+/// {@tool snippet}
+/// This example shows a bouncing box that translates to a new position with spring physics:
+///
+/// ```dart
+/// class _MyWidget extends StatefulWidget {
+///   @override
+///   State<_MyWidget> createState() => _MyWidgetState();
+/// }
+///
+/// class _MyWidgetState extends State<_MyWidget> {
+///   Offset _position = Offset.zero;
+///
+///   @override
+///   Widget build(BuildContext context) {
+///     return GestureDetector(
+///       onTapDown: (details) {
+///         setState(() {
+///           _position = details.localPosition;
+///         });
+///       },
+///       child: ATranslate(
+///         physics: Spring.playful,
+///         offset: _position,
+///         child: Container(
+///           width: 50,
+///           height: 50,
+///           decoration: BoxDecoration(
+///             color: Colors.blue,
+///             borderRadius: BorderRadius.circular(25),
+///           ),
+///         ),
+///       ),
+///     );
+///   }
+/// }
+/// ```
+/// {@end-tool}
+///
+/// ## Use Cases
+///
+/// [ATranslate] is perfect for:
+/// * Gesture-based interactions (drag, fling)
+/// * Precise positioning animations
+/// * Following mouse/touch input
+/// * Creating floating UI elements
+/// * Smooth transitions between absolute positions
+///
+/// ## Performance
+///
+/// Transform.translate is one of the most performant ways to animate position
+/// because it doesn't trigger layout or affect other widgets. The transform
+/// happens during the paint phase.
+///
+/// ## Comparison with ASlide
+///
+/// | Feature | ATranslate | ASlide |
+/// |---------|------------|--------|
+/// | Units | Absolute pixels | Fractional (relative to size) |
+/// | Use case | Precise positioning | Relative sliding effects |
+/// | Performance | Excellent | Excellent |
+/// | Gesture tracking | ✅ Ideal | ❌ Requires conversion |
+///
+/// {@endtemplate}
+/// {@endtemplate}
+class ATranslate extends ImplicitlyPhysicsAnimatedWidget {
+  /// Creates a new [ATranslate].
+  /// {@macro a_translate}
+  const ATranslate({
+    super.key,
+    required this.offset,
+    this.transformHitTests = true,
+    this.filterQuality,
+    this.child,
+    super.duration,
+    super.physics,
+    super.onEnd,
+  });
+
+  /// The translation offset in pixels.
+  ///
+  /// This represents the absolute pixel offset to translate the child by.
+  /// Positive x values move right, positive y values move down.
+  final Offset offset;
+
+  /// Whether to apply the transformation when performing hit tests.
+  ///
+  /// If this is true (the default), then hit testing will be performed on the
+  /// transformed child. If this is false, hit testing will ignore the
+  /// transformation and be performed on the child as if it was not transformed.
+  final bool transformHitTests;
+
+  /// The quality of the filter to apply when transforming.
+  ///
+  /// This is only used when the transform is not axis-aligned.
+  final FilterQuality? filterQuality;
+
+  /// The widget to translate.
+  final Widget? child;
+
+  @override
+  State<ATranslate> createState() => _ATranslateState();
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(DiagnosticsProperty<Offset>('offset', offset));
+    properties
+        .add(DiagnosticsProperty<bool>('transformHitTests', transformHitTests));
+    properties.add(EnumProperty<FilterQuality>('filterQuality', filterQuality));
+  }
+}
+
+class _ATranslateState extends PhysicsAnimatedWidgetBaseState<ATranslate> {
+  PhysicsAnimatedProperty? _dx, _dy;
+
+  @override
+  void forEachPhysicsProperty(PhysicsPropertyVisitor visitor) {
+    _dx = visitor(_dx, widget.offset.dx,
+        (v) => PhysicsAnimatedProperty(key: 'dx', initialValue: v));
+    _dy = visitor(_dy, widget.offset.dy,
+        (v) => PhysicsAnimatedProperty(key: 'dy', initialValue: v));
+  }
+
+  @override
+  List<String> get physicsAnimatedProperties => const ['dx', 'dy'];
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.translate(
+      offset: Offset(evaluate(_dx) ?? 0.0, evaluate(_dy) ?? 0.0),
+      transformHitTests: widget.transformHitTests,
+      filterQuality: widget.filterQuality,
+      child: widget.child,
+    );
+  }
+}
+
 /// {@template a_opacity_full}
 /// Physics-based equivalent of [AnimatedOpacity], renamed to [AOpacity].
 ///
