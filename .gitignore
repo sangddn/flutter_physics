@@ -28,3 +28,6 @@ doc/api/
 
 .idea/
 .DS_Store
+
+# Local agent settings
+.claude/

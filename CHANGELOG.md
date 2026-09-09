@@ -1,3 +1,8 @@
+## 0.2.1
+
+* Fix `AContainer` crashing when spring overshoot produces invalid decoration values, such as negative shadow blur radii when a shadow disappears.
+* Clamp interpolation for both `decoration` and `foregroundDecoration`, including when an animation is interrupted with a new target. Other animated properties retain their spring motion.
+
 ## 0.2.0
 
 * **BREAKING**: Updated all predefined springs to be compatible with Flutter 3.32+ breaking changes to `SpringDescription`.

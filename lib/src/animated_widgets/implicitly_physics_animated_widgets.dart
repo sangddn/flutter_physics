@@ -495,6 +495,10 @@ abstract class PhysicsAnimatedWidgetBaseState<
 /// using physics-based animations. The physics simulation or curve used for the transition
 /// is configurable via the [physics] property.
 ///
+/// Interpolation of [decoration] and [foregroundDecoration] is clamped to the
+/// range from 0.0 to 1.0 to keep values such as shadow blur radii valid during
+/// spring overshoot. Other animated properties retain their spring motion.
+///
 /// {@macro ImplicitlyPhysicsAnimatedWidget}
 ///
 /// {@tool snippet}
@@ -685,6 +689,15 @@ class AContainer extends ImplicitlyPhysicsAnimatedWidget {
   }
 }
 
+// Clamp in the tween so both rendering and retargeting an active animation
+// evaluate decorations safely when the spring overshoots.
+class _ClampedDecorationTween extends DecorationTween {
+  _ClampedDecorationTween({super.begin});
+
+  @override
+  Decoration lerp(double t) => super.lerp(t.clamp(0.0, 1.0));
+}
+
 class _AContainerState extends PhysicsAnimatedWidgetBaseState<AContainer> {
   DecorationTween? _decoration;
   DecorationTween? _foregroundDecoration;
@@ -721,12 +734,12 @@ class _AContainerState extends PhysicsAnimatedWidgetBaseState<AContainer> {
   @override
   void forEachTween(PhysicsTweenVisitor<dynamic> visitor) {
     _decoration = visitor(_decoration, widget.decoration,
-            (value) => DecorationTween(begin: value as Decoration?))
+            (value) => _ClampedDecorationTween(begin: value as Decoration?))
         as DecorationTween?;
     _foregroundDecoration = visitor(
             _foregroundDecoration,
             widget.foregroundDecoration,
-            (value) => DecorationTween(begin: value as Decoration?))
+            (value) => _ClampedDecorationTween(begin: value as Decoration?))
         as DecorationTween?;
     _constraints = visitor(_constraints, widget.constraints,
             (value) => BoxConstraintsTween(begin: value as BoxConstraints?))

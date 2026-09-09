@@ -320,6 +320,10 @@ void main() {
   // ---------------------------------------------------------------------------
   testWidgets('ASlide animates offset from (0,0) to (0.5, -0.5)',
       (tester) async {
+    final translationFinder = find.descendant(
+      of: find.byType(ASlide),
+      matching: find.byType(FractionalTranslation),
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: ASlide(
@@ -328,8 +332,8 @@ void main() {
         ),
       ),
     );
-    var fractionalTranslation = tester
-        .widget<FractionalTranslation>(find.byType(FractionalTranslation));
+    var fractionalTranslation =
+        tester.widget<FractionalTranslation>(translationFinder);
     expect(fractionalTranslation.translation, Offset.zero);
 
     // Update
@@ -343,15 +347,15 @@ void main() {
     );
 
     await tester.pump(const Duration(milliseconds: 200));
-    fractionalTranslation = tester
-        .widget<FractionalTranslation>(find.byType(FractionalTranslation));
+    fractionalTranslation =
+        tester.widget<FractionalTranslation>(translationFinder);
     expect(fractionalTranslation.translation.dx, greaterThan(0.0));
     expect(fractionalTranslation.translation.dx, lessThan(0.5));
 
     // Finish
     await tester.pumpAndSettle(const Duration(milliseconds: 300));
-    fractionalTranslation = tester
-        .widget<FractionalTranslation>(find.byType(FractionalTranslation));
+    fractionalTranslation =
+        tester.widget<FractionalTranslation>(translationFinder);
     expect(fractionalTranslation.translation.dx, closeTo(0.5, 0.001));
     expect(fractionalTranslation.translation.dy, closeTo(-0.5, 0.001));
   });
@@ -383,8 +387,10 @@ void main() {
     );
 
     await tester.pumpAndSettle(const Duration(milliseconds: 400));
-    final opacityWidget =
-        tester.widget<FadeTransition>(find.byType(FadeTransition));
+    final opacityWidget = tester.widget<FadeTransition>(find.descendant(
+      of: find.byType(AOpacity),
+      matching: find.byType(FadeTransition),
+    ));
     expect(opacityWidget.opacity.value, closeTo(0.4, 0.01));
   });
 
