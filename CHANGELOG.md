@@ -1,3 +1,7 @@
+## 0.2.2
+
+* Fix `ASwitcher` retaining outgoing children and their controllers after transitions finish. Remove each outgoing child and dispose its controller when its reverse animation is dismissed, matching Flutter's `AnimatedSwitcher` lifecycle.
+
 ## 0.2.1
 
 * Fix `AContainer` crashing when spring overshoot produces invalid decoration values, such as negative shadow blur radii when a shadow disappears.

@@ -130,7 +130,8 @@ class ASwitcher extends StatefulWidget {
   ///
   /// If a new widget is provided with a different key, the old widget will be
   /// transitioned out while the new widget transitions in using the provided
-  /// [transitionBuilder] and [layoutBuilder].
+  /// [transitionBuilder] and [layoutBuilder]. The old child is removed and its
+  /// controller disposed when its outgoing animation is dismissed.
   final Widget? child;
 
   /// The duration of the transition when a new child is added.
@@ -240,7 +241,7 @@ class _ASwitcherState extends State<ASwitcher> with TickerProviderStateMixin {
       defaultPhysics: widget.physics,
     );
 
-    _currentEntry = _ChildEntry(
+    final entry = _ChildEntry(
       controller: controller,
       widgetChild: widget.child!,
       transition: KeyedSubtree.wrap(
@@ -248,6 +249,22 @@ class _ASwitcherState extends State<ASwitcher> with TickerProviderStateMixin {
         _childNumber,
       ),
     );
+    _currentEntry = entry;
+
+    // Like AnimatedSwitcher, retain outgoing children only until their reverse
+    // animation is dismissed. Register before starting the animation so even
+    // transitions reversed before their first tick are cleaned up.
+    controller.addStatusListener((AnimationStatus status) {
+      if (status != AnimationStatus.dismissed ||
+          !_outgoingEntries.contains(entry)) {
+        return;
+      }
+      setState(() {
+        _outgoingEntries.remove(entry);
+        _markChildWidgetCacheAsDirty();
+      });
+      entry.controller.dispose();
+    });
 
     if (animate) {
       controller.forward();
