@@ -379,7 +379,9 @@ class RenderASize extends RenderAligningShiftedBox {
     if (_targetSize != child!.size) {
       _beginSize = _targetSize = debugAdoptSize(child!.size);
       _restartAnimation();
-      _state = RenderAnimatedSizeState.changed;
+      _state = _controller.isAnimating
+          ? RenderAnimatedSizeState.changed
+          : RenderAnimatedSizeState.stable;
     } else if (_targetSize?.isVeryCloseTo(_controller.value.toSize()) ??
         false) {
       _beginSize = _targetSize = debugAdoptSize(child!.size);
@@ -392,10 +394,14 @@ class RenderASize extends RenderAligningShiftedBox {
     if (_targetSize != child!.size) {
       _beginSize = _targetSize = debugAdoptSize(child!.size);
       _restartAnimation();
-      _state = RenderAnimatedSizeState.unstable;
+      _state = _controller.isAnimating
+          ? RenderAnimatedSizeState.unstable
+          : RenderAnimatedSizeState.stable;
     } else {
       _state = RenderAnimatedSizeState.stable;
-      if (!_controller.isAnimating && _targetSize != null) {
+      if (!_controller.isAnimating &&
+          _targetSize != null &&
+          _controller.value != _targetSize!.toOffset()) {
         _controller.animateTo(_targetSize!.toOffset());
       }
     }
@@ -405,6 +411,9 @@ class RenderASize extends RenderAligningShiftedBox {
     if (_targetSize != child!.size) {
       _beginSize = _targetSize = debugAdoptSize(child!.size);
       _restartAnimation();
+      if (!_controller.isAnimating) {
+        _state = RenderAnimatedSizeState.stable;
+      }
     } else {
       _controller.stop();
       _state = RenderAnimatedSizeState.stable;
@@ -419,6 +428,12 @@ class RenderASize extends RenderAligningShiftedBox {
 
   void _handleStatusChange(AnimationStatus status) {
     if (status == AnimationStatus.completed) {
+      // The final value can equal the value used by the last layout. Still
+      // perform a layout to recognize that the child's size has stabilized.
+      if (_state == RenderAnimatedSizeState.changed ||
+          _state == RenderAnimatedSizeState.unstable) {
+        markNeedsLayout();
+      }
       _onEnd?.call();
     }
   }

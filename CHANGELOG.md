@@ -1,3 +1,9 @@
+## 0.2.3
+
+* Fix target-based physics animations stopping just short of their requested values. All three controllers now set exact final targets before notifying listeners, respecting controller bounds and clamped physics. This removes residual borders and shadows from completed implicit animations while preserving custom `animateWith` simulation behavior.
+* Fix zero-duration updates in `PhysicsController2D` and `PhysicsControllerMulti` leaving an older animation running.
+* Ensure `ASize` recognizes a stabilized child even when the controller's final value is unchanged.
+
 ## 0.2.2
 
 * Fix `ASwitcher` retaining outgoing children and their controllers after transitions finish. Remove each outgoing child and dispose its controller when its reverse animation is dismissed, matching Flutter's `AnimatedSwitcher` lifecycle.

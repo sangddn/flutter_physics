@@ -223,15 +223,17 @@ class PhysicsController extends Animation<double>
         physics is PhysicsSimulation;
     _defaultPhysics = physics;
     if (shouldUpdate) {
+      final completionTarget = _completionTarget;
       final velocity = stop();
       final currentPhysics = currentSim;
       final newPhysics = physics;
       _startSimulation(
         newPhysics.copyWith(
           start: _value,
-          end: currentPhysics.end,
+          end: completionTarget ?? currentPhysics.end,
           initialVelocity: velocity,
         ),
+        completionTarget: completionTarget,
       );
     }
   }
@@ -268,6 +270,7 @@ class PhysicsController extends Animation<double>
   }
 
   Simulation? _simulation;
+  double? _completionTarget;
 
   /// The current value of the animation.
   @override
@@ -361,6 +364,10 @@ class PhysicsController extends Animation<double>
 
   /// Drives the animation from its current value to target.
   ///
+  /// On completion, the value is exactly [target], subject to controller bounds
+  /// and any [ClampedPhysicsSimulation] position limits. Value and status
+  /// listeners receive this final value.
+  ///
   /// When using [PhysicsSimulation] as the [physics] parameter, the animation
   /// can maintain momentum across updates, and can accept [velocityOverride]
   /// and [velocityDelta] to tailor the initial velocity.
@@ -453,8 +460,10 @@ class PhysicsController extends Animation<double>
 
     final currentVelocity = stop();
     if (simulationDuration == Duration.zero) {
-      if (value != target) {
-        _value = clampDouble(target, lowerBound, upperBound);
+      final endValue = clampDouble(
+          _clampPhysicsTarget(target, physics), lowerBound, upperBound);
+      if (value != endValue) {
+        _value = endValue;
         notifyListeners();
       }
       _status = (_direction == _AnimationDirection.forward)
@@ -490,6 +499,7 @@ class PhysicsController extends Animation<double>
           end: target,
           initialVelocity: initV,
         ),
+        completionTarget: target,
       );
     }
 
@@ -506,6 +516,7 @@ class PhysicsController extends Animation<double>
         physics,
         durationScale!,
       ),
+      completionTarget: target,
     );
   }
 
@@ -564,9 +575,11 @@ class PhysicsController extends Animation<double>
     return _startSimulation(simulation);
   }
 
-  TickerFuture _startSimulation(Simulation simulation) {
+  TickerFuture _startSimulation(Simulation simulation,
+      {double? completionTarget}) {
     assert(!isAnimating);
     _simulation = simulation;
+    _completionTarget = completionTarget;
     _lastElapsedDuration = Duration.zero;
     _value = clampDouble(simulation.x(0.0), lowerBound, upperBound);
     final TickerFuture result = _ticker!.start();
@@ -589,6 +602,7 @@ class PhysicsController extends Animation<double>
     final velocity = _simulation?.dx(
         lastElapsedDuration!.inMicroseconds / Duration.microsecondsPerSecond);
     _simulation = null;
+    _completionTarget = null;
     _lastElapsedDuration = null;
     _ticker!.stop(canceled: canceled);
     return velocity ?? 0.0;
@@ -637,6 +651,11 @@ class PhysicsController extends Animation<double>
     _value =
         clampDouble(_simulation!.x(elapsedInSeconds), lowerBound, upperBound);
     if (_simulation!.isDone(elapsedInSeconds)) {
+      final target = _completionTarget;
+      if (target != null) {
+        _value = clampDouble(
+            _clampPhysicsTarget(target, _simulation!), lowerBound, upperBound);
+      }
       _status = (_direction == _AnimationDirection.forward)
           ? AnimationStatus.completed
           : AnimationStatus.dismissed;
@@ -836,6 +855,19 @@ final _kFlingSpringDescription =
     SpringDescription.withDampingRatio(mass: 1.0, stiffness: 500.0);
 
 const _kFlingTolerance = Tolerance(velocity: double.infinity, distance: 0.01);
+
+// An explicit target must still respect positional limits supplied by physics.
+// Raw animateWith and repeat runs do not have a completion target.
+double _clampPhysicsTarget(double target, Object physics) {
+  if (physics is ClampedPhysicsSimulation) {
+    return clampDouble(
+      _clampPhysicsTarget(target, physics.simulation),
+      physics.xMin,
+      physics.xMax,
+    );
+  }
+  return target;
+}
 
 class _InterpolationSimulation extends Simulation {
   _InterpolationSimulation(

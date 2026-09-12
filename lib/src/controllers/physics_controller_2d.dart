@@ -234,6 +234,7 @@ class PhysicsController2D extends Animation<Offset>
         physics.isPhysicsBased();
     _defaultPhysics = physics;
     if (shouldUpdate) {
+      final completionTarget = _completionTarget;
       final velocity = stop();
       final currentX = currentSims.$1 as PhysicsSimulation;
       final currentY = currentSims.$2 as PhysicsSimulation;
@@ -241,15 +242,15 @@ class PhysicsController2D extends Animation<Offset>
       final newY = physics.yPhysics as PhysicsSimulation;
       final x = newX.copyWith(
         start: _value.dx,
-        end: currentX.end,
+        end: completionTarget?.dx ?? currentX.end,
         initialVelocity: velocity.dx,
       );
       final y = newY.copyWith(
         start: _value.dy,
-        end: currentY.end,
+        end: completionTarget?.dy ?? currentY.end,
         initialVelocity: velocity.dy,
       );
-      _startSimulations(x, y);
+      _startSimulations(x, y, completionTarget: completionTarget);
     }
   }
 
@@ -271,6 +272,7 @@ class PhysicsController2D extends Animation<Offset>
 
   Ticker? _ticker;
   (Simulation, Simulation)? _sims;
+  Offset? _completionTarget;
   _AnimationDirection _direction;
 
   /// Recreates the [Ticker] with the new [TickerProvider].
@@ -339,6 +341,7 @@ class PhysicsController2D extends Animation<Offset>
   Offset stop({bool canceled = true}) {
     final velocity = this.velocity;
     _sims = null;
+    _completionTarget = null;
     _lastElapsedDuration = null;
     _ticker?.stop(canceled: canceled);
     return velocity;
@@ -360,6 +363,10 @@ class PhysicsController2D extends Animation<Offset>
   }
 
   /// Drives the animation from its current position to [target].
+  ///
+  /// On completion, each coordinate is exactly its requested target, subject
+  /// to controller bounds and any [ClampedPhysicsSimulation] position limits.
+  /// Value and status listeners receive this final value.
   ///
   /// If no [duration] is provided, [this.duration] is used.
   /// If [target] is the same as [value], no animation occurs.
@@ -407,9 +414,19 @@ class PhysicsController2D extends Animation<Offset>
 
     _direction = _AnimationDirection.forward;
 
+    final velocity = stop();
+
     if (duration == Duration.zero) {
-      if (value != target) {
-        _value = _clampOffset(target, lowerBound, upperBound);
+      final endValue = _clampOffset(
+        Offset(
+          _clampPhysicsTarget(target.dx, physics.xPhysics),
+          _clampPhysicsTarget(target.dy, physics.yPhysics),
+        ),
+        lowerBound,
+        upperBound,
+      );
+      if (value != endValue) {
+        _value = endValue;
         notifyListeners();
       }
       _status = (_direction == _AnimationDirection.forward)
@@ -418,8 +435,6 @@ class PhysicsController2D extends Animation<Offset>
       _checkStatusChanged();
       return TickerFuture.complete();
     }
-
-    final velocity = stop();
 
     if (physics.isPhysicsBased()) {
       final xPhysics = physics.xPhysics as PhysicsSimulation;
@@ -445,6 +460,7 @@ class PhysicsController2D extends Animation<Offset>
                   (velocity.dy + yPhysics.initialVelocity + velocityDelta.dy))
               : null,
         ),
+        completionTarget: target,
       );
     }
 
@@ -466,6 +482,7 @@ class PhysicsController2D extends Animation<Offset>
         physics.yPhysics,
         durationScale,
       ),
+      completionTarget: target,
     );
   }
 
@@ -499,9 +516,11 @@ class PhysicsController2D extends Animation<Offset>
     );
   }
 
-  TickerFuture _startSimulations(Simulation x, Simulation y) {
+  TickerFuture _startSimulations(Simulation x, Simulation y,
+      {Offset? completionTarget}) {
     assert(!isAnimating);
     _sims = (x, y);
+    _completionTarget = completionTarget;
     _lastElapsedDuration = Duration.zero;
     _value = _clampOffset(Offset(x.x(0), y.x(0)), lowerBound, upperBound);
     final TickerFuture result = _ticker!.start();
@@ -596,6 +615,17 @@ class PhysicsController2D extends Animation<Offset>
     _value = _clampOffset(offsetRaw, lowerBound, upperBound);
 
     if (_sims!.isDone(t)) {
+      final target = _completionTarget;
+      if (target != null) {
+        _value = _clampOffset(
+          Offset(
+            _clampPhysicsTarget(target.dx, _sims!.$1),
+            _clampPhysicsTarget(target.dy, _sims!.$2),
+          ),
+          lowerBound,
+          upperBound,
+        );
+      }
       // If done, finalize the status
       _status = (_direction == _AnimationDirection.forward)
           ? AnimationStatus.completed

@@ -262,16 +262,18 @@ class PhysicsControllerMulti extends Animation<UnmodifiableListView<double>>
         physics.isPhysicsBased();
     _defaultPhysics = List.of(physics);
     if (shouldUpdate) {
+      final completionTarget = _completionTarget;
       final velocity = stop();
       final effectiveSims = List<Simulation>.generate(
         dimensions,
         (i) => (physics[i] as PhysicsSimulation).copyWith(
           start: _value[i],
-          end: (currentSims[i] as PhysicsSimulation).end,
+          end:
+              completionTarget?[i] ?? (currentSims[i] as PhysicsSimulation).end,
           initialVelocity: velocity[i],
         ),
       );
-      _startSimulations(effectiveSims);
+      _startSimulations(effectiveSims, completionTarget: completionTarget);
     }
   }
 
@@ -303,6 +305,7 @@ class PhysicsControllerMulti extends Animation<UnmodifiableListView<double>>
 
   Ticker? _ticker;
   final List<Simulation> _sims = [];
+  List<double>? _completionTarget;
   _AnimationDirection _direction;
 
   /// Recreates the [Ticker] with the new [TickerProvider].
@@ -383,6 +386,7 @@ class PhysicsControllerMulti extends Animation<UnmodifiableListView<double>>
   UnmodifiableListView<double> stop({bool canceled = true}) {
     final velocity = this.velocity;
     _sims.clear();
+    _completionTarget = null;
     _lastElapsedDuration = null;
     _ticker?.stop(canceled: canceled);
     return velocity;
@@ -404,6 +408,11 @@ class PhysicsControllerMulti extends Animation<UnmodifiableListView<double>>
   }
 
   /// Drives the animation from its current position to [target].
+  ///
+  /// On completion, each dimension is exactly its requested target, subject
+  /// to controller bounds and any [ClampedPhysicsSimulation] position limits.
+  /// Value and status listeners receive this final value. The target values
+  /// are copied so later changes to the supplied list do not affect this run.
   ///
   /// * [target] must contain exactly [dimensions] number of values
   /// * [duration] overrides [this.duration] if provided
@@ -471,10 +480,19 @@ class PhysicsControllerMulti extends Animation<UnmodifiableListView<double>>
 
     _direction = _AnimationDirection.forward;
 
+    final velocity = stop();
+
     if (duration == Duration.zero) {
-      if (!listEquals(value, target)) {
-        _value =
-            _clampDoubles(UnmodifiableListView(target), lowerBound, upperBound);
+      final endValue = _clampDoubles(
+        List<double>.generate(
+          dimensions,
+          (i) => _clampPhysicsTarget(target[i], physics![i]),
+        ),
+        lowerBound,
+        upperBound,
+      );
+      if (!listEquals(value, endValue)) {
+        _value = endValue;
         notifyListeners();
       }
       _status = (_direction == _AnimationDirection.forward)
@@ -483,8 +501,6 @@ class PhysicsControllerMulti extends Animation<UnmodifiableListView<double>>
       _checkStatusChanged();
       return TickerFuture.complete();
     }
-
-    final velocity = stop();
 
     if (physics.isPhysicsBased()) {
       return _startSimulations(
@@ -506,6 +522,7 @@ class PhysicsControllerMulti extends Animation<UnmodifiableListView<double>>
             );
           },
         ),
+        completionTarget: target,
       );
     }
 
@@ -524,6 +541,7 @@ class PhysicsControllerMulti extends Animation<UnmodifiableListView<double>>
             ),
           )
           .toList(),
+      completionTarget: target,
     );
   }
 
@@ -568,9 +586,12 @@ class PhysicsControllerMulti extends Animation<UnmodifiableListView<double>>
     return _DimensionAnimation(this, dimension);
   }
 
-  TickerFuture _startSimulations(List<Simulation> simulations) {
+  TickerFuture _startSimulations(List<Simulation> simulations,
+      {List<double>? completionTarget}) {
     assert(!isAnimating);
     assert(simulations.length == dimensions);
+    _completionTarget =
+        completionTarget == null ? null : List<double>.of(completionTarget);
     _sims
       ..clear()
       ..addAll(simulations);
@@ -658,6 +679,17 @@ class PhysicsControllerMulti extends Animation<UnmodifiableListView<double>>
     _value = _clampDoubles(_sims.x(t), lowerBound, upperBound);
 
     if (_sims.isDone(t)) {
+      final target = _completionTarget;
+      if (target != null) {
+        _value = _clampDoubles(
+          List<double>.generate(
+            dimensions,
+            (i) => _clampPhysicsTarget(target[i], _sims[i]),
+          ),
+          lowerBound,
+          upperBound,
+        );
+      }
       // If done, finalize the status
       _status = (_direction == _AnimationDirection.forward)
           ? AnimationStatus.completed

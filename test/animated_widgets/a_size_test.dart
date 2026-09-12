@@ -106,6 +106,33 @@ void main() {
       expect(callCount, equals(1));
     });
 
+    for (final duration in [null, Duration.zero]) {
+      final timing = duration == null ? 'a stationary spring' : 'zero duration';
+      testWidgets('stabilizes and calls onEnd once with $timing',
+          (tester) async {
+        var callCount = 0;
+        Widget build(double size) => Center(
+              child: ASize(
+                physics: Spring.swift,
+                duration: duration,
+                onEnd: () => callCount++,
+                child: SizedBox.square(dimension: size),
+              ),
+            );
+
+        await tester.pumpWidget(build(100));
+        expect(callCount, 0);
+        await tester.pumpWidget(build(200));
+        await tester.pumpAndSettle();
+
+        final box = tester.renderObject<RenderASize>(find.byType(ASize));
+        expect(callCount, 1);
+        expect(box.state, RenderAnimatedSizeState.stable);
+        expect(box.size, const Size(200, 200));
+        expect(box.debugController!.isAnimating, isFalse);
+      });
+    }
+
     testWidgets('clamps animated size to constraints',
         (WidgetTester tester) async {
       await tester.pumpWidget(
